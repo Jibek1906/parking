@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking - Заставка</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #0052cc 0%, #ffffff 50%, #e6f2ff 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            color: #0052cc;
+        }
+        
+        .terminal-screen {
+            background: #ffffff;
+            width: 90%;
+            max-width: 600px;
+            min-height: 400px;
+            border: 8px solid #0052cc;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 82, 204, 0.3);
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .terminal-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(90deg, #0052cc 0%, #1976d2 50%, #0052cc 100%);
+        }
+        
+        .logo {
+            font-size: 80px;
+            margin-bottom: 30px;
+            color: #0052cc;
+        }
+        
+        .main-title {
+            font-size: 42px;
+            font-weight: bold;
+            color: #0052cc;
+            margin: 0 0 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .subtitle {
+            font-size: 24px;
+            color: #666666;
+            margin-bottom: 60px;
+        }
+        
+        .instruction {
+            background: linear-gradient(90deg, #0052cc, #1976d2);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+        }
+        
+        .status {
+            background: #e6f2ff;
+            border: 2px solid #0052cc;
+            border-radius: 6px;
+            padding: 20px;
+            font-size: 18px;
+            color: #0052cc;
+            font-weight: 600;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #00cc44;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(0, 204, 68, 0.7);
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.9;
+                box-shadow: 0 0 0 10px rgba(0, 204, 68, 0);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(0, 204, 68, 0);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .terminal-screen {
+                width: 95%;
+                padding: 40px 20px;
+            }
+            
+            .main-title {
+                font-size: 32px;
+            }
+            
+            .instruction {
+                font-size: 22px;
+                padding: 25px;
+            }
+        }
+    </style>
+    <script>
+        let ws;
+        let wakeLock = null;
+        async function preventScreenSleep() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen Wake Lock активен');
+                    
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock был отпущен');
+                    });
+                }
+            } catch (err) {
+                console.error(`Ошибка Screen Wake Lock: ${err.message}`);
+            }
+            
+            keepSystemAwake();
+        }
+        
+        function keepSystemAwake() {
+            const video = document.createElement('video');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.setAttribute('width', '1');
+            video.setAttribute('height', '1');
+            video.style.position = 'absolute';
+            video.style.top = '0';
+            video.style.left = '0';
+            video.style.opacity = '0';
+            video.style.pointerEvents = 'none';
+            video.setAttribute('muted', 'muted');
+            video.muted = true;
+            
+            const source = document.createElement('source');
+            source.src = 'data:video/mp4;base64,AAAAFGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQAAAAhmcmVlAAAC721kYXQhEAUgpBv/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+            source.type = 'video/mp4';
+            
+            video.appendChild(source);
+            document.body.appendChild(video);
+            
+            const playVideo = () => {
+                video.play().catch(e => {
+                    console.log('Автовоспроизведение видео заблокировано:', e);
+                });
+            };
+            
+            playVideo();
+            
+            setInterval(playVideo, 10000);
+            
+            let cursorPosition = 0;
+            setInterval(() => {
+                cursorPosition = cursorPosition === 0 ? 1 : 0;
+                document.body.style.marginLeft = cursorPosition + 'px';
+                setTimeout(() => {
+                    document.body.style.marginLeft = '0';
+                }, 100);
+            }, 30000);
+            
+            setInterval(() => {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+                    oscillator.connect(audioContext.destination);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.001);
+                } catch (e) {
+                    console.log('Аудиоконтекст не поддерживается');
+                }
+            }, 60000);
+        }
+        
+        function connectScreenWS() {
+            ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/screen");
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.screen === "payment" && data.plate) {
+                        window.location.href = "/2";
+                    }
+                } catch (e) {}
+            };
+            ws.onclose = function() {
+                setTimeout(connectScreenWS, 2000);
+            };
+        }
+        
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && wakeLock === null) {
+                await preventScreenSleep();
+            }
+        });
+        
+        window.addEventListener("DOMContentLoaded", () => {
+            preventScreenSleep();
+            
+            connectScreenWS();
+            fetch("/screen/next-payment")
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.plate) {
+                        fetch("/camera/payment-page/" + encodeURIComponent(data.plate))
+                            .then(resp => {
+                                if (resp.ok) {
+                                    window.location.href = "/2";
+                                } else {
+                                    fetch("/screen/clear-payment", {method: "POST"});
+                                }
+                            })
+                            .catch(() => {
+                                fetch("/screen/clear-payment", {method: "POST"});
+                            });
+                    }
+                })
+                .catch(() => {});
+        });
+        
+        window.addEventListener('focus', preventScreenSleep);
+    </script>
+</head>
+<body>
+    <div class="terminal-screen">
+        <div class="logo">🅿️</div>
+        
+        <h1 class="main-title">SMART PARKING</h1>
+        
+        <div class="subtitle">Автоматическая парковка</div>
+        
+        <div class="instruction">
+            Подъезжайте к шлагбауму
+        </div>
+        
+        <div class="status">
+            <span class="status-indicator"></span>
+            СИСТЕМА ГОТОВА К РАБОТЕ
+        </div>
+    </div>
+</body>
+</html>

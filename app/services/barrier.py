@@ -17,33 +17,43 @@ def open_barrier(camera_ip: str) -> bool:
         else:
             print(f"⚠️ No barrier configuration for camera {camera_ip}")
             return False
-       
+
         IP = barrier_config["ip"]
         PORT = barrier_config["port"]
         USER = barrier_config["user"]
         PASS = barrier_config["password"]
         CHANNEL = barrier_config["channel"]
-       
+
         URL = f"http://{IP}:{PORT}/ISAPI/Parking/channels/{CHANNEL}/barrierGate"
         AUTH = HTTPDigestAuth(USER, PASS)
         HEADERS = {"Content-Type": "application/xml"}
-       
+
         xml_data = '''<?xml version="1.0" encoding="utf-8"?>
 <BarrierGate><ctrlMode>open</ctrlMode></BarrierGate>'''
-       
+
         print(f"🔄 Открываем шлагбаум для камеры {camera_ip}...")
-       
-        response = requests.put(
-            URL,
-            auth=AUTH,
-            headers=HEADERS,
-            data=xml_data.encode('utf-8'),
-            timeout=10
-        )
-       
+
+        try:
+            response = requests.put(
+                URL,
+                auth=AUTH,
+                headers=HEADERS,
+                data=xml_data.encode('utf-8'),
+                timeout=10
+            )
+        except requests.exceptions.Timeout:
+            print(f"⏱️ Таймаут: шлагбаум {camera_ip} не отвечает (timeout)")
+            return False
+        except requests.exceptions.ConnectionError:
+            print(f"🌐 Нет соединения: шлагбаум {camera_ip} физически недоступен (connection error)")
+            return False
+        except Exception as e:
+            print(f"❌ Ошибка сети при открытии шлагбаума {camera_ip}: {e}")
+            return False
+
         print(f"📊 Код ответа: {response.status_code}")
         print(f"📝 Ответ: {response.text}")
-       
+
         if response.status_code == 200:
             print(f"✅ Шлагбаум для камеры {camera_ip} успешно открыт!")
             return True
@@ -51,9 +61,9 @@ def open_barrier(camera_ip: str) -> bool:
             print("⚠️ Ошибка авторизации - проверьте логин/пароль")
         else:
             print(f"⚠️ Неожиданный код: {response.status_code}")
-                   
+
         return False
-           
+
     except Exception as e:
         print(f"❌ Ошибка открытия шлагбаума для {camera_ip}: {e}")
         return False

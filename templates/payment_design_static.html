@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Оплата парковки — Дизайн (статичный)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      margin: 0; padding: 40px 0;
+      background: #f5f7fa;
+      display: flex; justify-content: center; align-items: flex-start;
+      min-height: 100vh; color: #222;
+    }
+    .container {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px 24px 32px 24px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .plate-block {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid #222b3a;
+      border-radius: 16px;
+      background: #fff;
+      width: 100%;
+      max-width: 340px;
+      margin: 0 auto 24px auto;
+      height: 70px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      font-family: 'Arial Black', Arial, sans-serif;
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      position: relative;
+    }
+    .plate-region {
+      font-size: 22px;
+      font-weight: bold;
+      color: #222b3a;
+      margin-right: 16px;
+      margin-left: 8px;
+    }
+    .plate-sep {
+      display: inline-block;
+      width: 3px;
+      height: 38px;
+      background: #222b3a;
+      margin: 0 18px 0 0;
+      border-radius: 2px;
+    }
+    .plate-main {
+      font-size: 32px;
+      font-weight: bold;
+      color: #222b3a;
+      letter-spacing: 4px;
+    }
+
+    .img-block {
+      margin: 0 auto 24px auto;
+      background: #fff;
+      border: 4px solid #e8eef7;
+      border-radius: 16px;
+      padding: 12px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+    }
+    .img-block img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .amount-rectangle {
+      width: 100%;
+      max-width: 340px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 auto 18px auto;
+      padding: 0 24px;
+      box-shadow: 0 8px 25px rgba(76, 175, 80, 0.18);
+    }
+    .amount-label {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .amount-value {
+      color: #fff;
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .info-table {
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto;
+      background: #fafbfc;
+      border-radius: 12px;
+      border: 1px solid #e8eef7;
+      box-shadow: 0 2px 8px rgba(80,80,180,0.04);
+      font-size: 16px;
+      overflow: hidden;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e8eef7;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      color: #666;
+    }
+    .info-value {
+      font-weight: 600;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="plate-block">
+      <span class="plate-region" style="display: flex; align-items: center;">
+        <span style="font-size: 22px; margin-right: 6px;">🇰🇬</span>
+        <span>01</span>
+      </span>
+      <span class="plate-main" style="font-size: 32px; margin-left: 16px;">111AAA</span>
+    </div>
+    <div class="img-block">
+      <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80" alt="QR или фото" />
+    </div>
+    <div class="amount-rectangle">
+      <span class="amount-label">К оплате</span>
+      <span class="amount-value">150.00 сом</span>
+    </div>
+    <div class="info-table">
+      <div class="info-row">
+        <span class="info-label">Въезд</span>
+        <span class="info-value">15.01.2024 14:30</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Выезд</span>
+        <span class="info-value">15.01.2024 16:45</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Продолжительность</span>
+        <span class="info-value">2 ч 15 мин</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

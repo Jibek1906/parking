@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админка парковки</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            color: #fff !important;
+            border: none;
+        }
+        .nav-tabs .nav-link {
+            color: #0984e3;
+            font-weight: 600;
+        }
+        .tab-content {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            padding: 32px 24px;
+            margin-top: 16px;
+        }
+        .table thead th {
+            background: #f8f9fa;
+        }
+        .modal-header {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            color: #fff;
+        }
+        .btn-gradient {
+            background: linear-gradient(90deg, #00b894 0%, #00a085 100%);
+            color: #fff;
+            border: none;
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(90deg, #0984e3 0%, #00b894 100%);
+        }
+        .flatpickr-calendar {
+            z-index: 9999 !important;
+        }
+        .badge-completed {
+            background: #27ae60;
+        }
+        .badge-timeout {
+            background: #e67e22;
+        }
+        .badge-manual {
+            background: #e74c3c;
+        }
+        .badge-active {
+            background: #3498db;
+        }
+        .plate-simple {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Arial Black', Arial, sans-serif;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #222;
+            background: #fff;
+            border: 1.5px solid #222;
+            border-radius: 3px;
+            padding: 1px 8px 1px 8px;
+            margin: 0;
+            min-width: 60px;
+            height: 22px;
+            line-height: 1;
+        }
+        .plate-region {
+            font-size: 10px;
+            font-weight: bold;
+            color: #222;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .plate-sep {
+            display: inline-block;
+            width: 1.5px;
+            height: 15px;
+            background: #222;
+            margin: 0 5px 0 0;
+            border-radius: 1px;
+        }
+        .plate-main {
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #222;
+        }
+        .filter-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .filter-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-5">
+    <h2 class="mb-4 fw-bold text-center">Админка парковки</h2>
+    <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="mode-tab" data-bs-toggle="tab" data-bs-target="#modeTab" type="button" role="tab">Режим</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tariffs-tab" data-bs-toggle="tab" data-bs-target="#tariffsTab" type="button" role="tab">Тарифы</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="whitelist-tab" data-bs-toggle="tab" data-bs-target="#whitelistTab" type="button" role="tab">Белый список</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="active-tab" data-bs-toggle="tab" data-bs-target="#activeTab" type="button" role="tab">Активные</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="visits-tab" data-bs-toggle="tab" data-bs-target="#visitsTab" type="button" role="tab">Визиты</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="errors-tab" data-bs-toggle="tab" data-bs-target="#errorsTab" type="button" role="tab">Ошибки сервера</button>
+        </li>
+    </ul>
+    <div class="tab-content" id="adminTabsContent">
+        <div class="tab-pane fade show active" id="modeTab" role="tabpanel">
+            <form id="modeForm" class="mb-4">
+                <label class="form-label fw-semibold">Режим работы парковки:</label>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="modeSwitch">
+                    <label class="form-check-label" for="modeSwitch" id="modeSwitchLabel">С оплатой</label>
+                </div>
+                <button type="submit" class="btn btn-gradient">Сохранить режим</button>
+            </form>
+            <div>
+                <span class="fw-semibold">Текущий режим:</span>
+                <span id="currentMode" class="badge bg-info text-dark">Загрузка...</span>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="tariffsTab" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">Тарифы</h5>
+                <button class="btn btn-gradient" id="addTariffBtn">Добавить тариф</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="tariffsTable">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Дневной</th>
+                            <th>Ночной</th>
+                            <th>Бесплатно (мин)</th>
+                            <th>Макс. часов</th>
+                            <th>Активный</th>
+                            <th>Действует с</th>
+                            <th>Действует до</th>
+                            <th>Описание</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="10" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="whitelistTab" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">Белый список номеров</h5>
+                <button class="btn btn-gradient" id="addWhitelistBtn">Добавить номер</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle" id="whitelistTable">
+                    <thead>
+                        <tr>
+                            <th>Номер</th>
+                            <th>Срок с</th>
+                            <th>Срок до</th>
+                            <th>Комментарий</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="activeTab" role="tabpanel">
+            <div class="mb-4">
+                <h5 class="fw-bold mb-2">Активные машины на парковке</h5>
+                <div class="mb-3">
+                    <span class="fw-semibold">Всего активных:</span>
+                    <span id="activeCount" class="badge bg-primary">0</span>
+                </div>
+                
+                <!-- Улучшенная фильтрация для активных -->
+                <div class="filter-box">
+                    <div class="filter-title">Фильтры и поиск</div>
+                    <form id="activeFilterForm" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="activePlateSearch" class="form-label">Поиск по номеру</label>
+                            <input type="text" id="activePlateSearch" class="form-control" placeholder="A123BC или часть номера">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="activeSortOrder" class="form-label">Сортировка</label>
+                            <select id="activeSortOrder" class="form-select">
+                                <option value="desc">Новые въезды сверху</option>
+                                <option value="asc">Старые въезды сверху</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-secondary w-100" id="clearActiveFilters">Сброс</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="activeVisitsTable">
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Время въезда</th>
+                                <th>Камера</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="text-center">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="visitsTab" role="tabpanel">
+            <div>
+                <h5 class="fw-bold mb-2">Все визиты — фильтрация и поиск</h5>
+                
+                <!-- Улучшенная фильтрация для визитов -->
+                <div class="filter-box">
+                    <div class="filter-title">Фильтры и поиск</div>
+                    <form id="visitsFilterForm" class="mb-3">
+                        <div class="row g-3 align-items-end mb-3">
+                            <div class="col-md-2">
+                                <label for="visitsDate" class="form-label">Дата</label>
+                                <input type="text" id="visitsDate" class="form-control">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="statusFilter" class="form-label">Статус</label>
+                                <select id="statusFilter" class="form-select">
+                                    <option value="">Все статусы</option>
+                                    <option value="active">Активные</option>
+                                    <option value="completed">Завершённые</option>
+                                    <option value="timeout">Таймаут</option>
+                                    <option value="manual">Вручную</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="plateSearch" class="form-label">Поиск по номеру</label>
+                                <input type="text" id="plateSearch" class="form-control" placeholder="A123BC или часть">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="sortOrder" class="form-label">Сортировка</label>
+                                <select id="sortOrder" class="form-select">
+                                    <option value="desc">Новые сверху</option>
+                                    <option value="asc">Старые сверху</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-secondary w-100" id="clearVisitsFilters">Сброс фильтров</button>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2">
+                                <label for="entryFrom" class="form-label">Въезд с</label>
+                                <input type="text" id="entryFrom" class="form-control" placeholder="дата время">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="entryTo" class="form-label">Въезд до</label>
+                                <input type="text" id="entryTo" class="form-control" placeholder="дата время">
+                            </div>
+                            <div class="col-md-2">
+                                <span class="fw-semibold d-block">Всего найдено:</span>
+                                <span id="visitsCount" class="badge bg-success fs-6">0</span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="visitsByDateTable">
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Въезд</th>
+                                <th>Выезд</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4" class="text-center">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="errorsTab" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">Логи сервера (последние)</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <select id="logLevelSelect" class="form-select form-select-sm" style="width:auto;">
+                        <option value="err">Ошибки</option>
+                        <option value="info">Все логи</option>
+                    </select>
+                    <button class="btn btn-gradient" id="refreshErrorsBtn">Обновить</button>
+                </div>
+            </div>
+            <pre id="serverErrorsLog" style="background:#222;color:#fff;padding:16px;border-radius:8px;max-height:400px;overflow:auto;font-size:13px;">Загрузка...</pre>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="whitelistModal" tabindex="-1" aria-labelledby="whitelistModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="whitelistForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="whitelistModalLabel">Добавить номер в белый список</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="whitelistId">
+        <div class="mb-3">
+          <label for="plateNumber" class="form-label">Номер</label>
+          <input type="text" class="form-control" id="plateNumber" required>
+        </div>
+        <div class="mb-3">
+          <label for="validFrom" class="form-label">Срок с</label>
+          <input type="datetime-local" class="form-control" id="validFrom" required>
+        </div>
+        <div class="mb-3">
+          <label for="validUntil" class="form-label">Срок до</label>
+          <input type="datetime-local" class="form-control" id="validUntil">
+        </div>
+        <div class="mb-3">
+          <label for="whitelistComment" class="form-label">Комментарий</label>
+          <input type="text" class="form-control" id="whitelistComment">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="submit" class="btn btn-gradient">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="tariffModal" tabindex="-1" aria-labelledby="tariffModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="tariffForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tariffModalLabel">Добавить тариф</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="tariffName" class="form-label">Название</label>
+          <input type="text" class="form-control" id="tariffName" required>
+        </div>
+        <div class="mb-3">
+          <label for="tariffHourly" class="form-label">Дневной тариф</label>
+          <input type="number" class="form-control" id="tariffHourly" required>
+        </div>
+        <div class="mb-3">
+          <label for="tariffNight" class="form-label">Ночной тариф</label>
+          <input type="number" class="form-control" id="tariffNight" required>
+        </div>
+        <div class="mb-3">
+          <label for="tariffFree" class="form-label">Бесплатно (мин)</label>
+          <input type="number" class="form-control" id="tariffFree" required>
+        </div>
+        <div class="mb-3">
+          <label for="tariffMax" class="form-label">Макс. часов</label>
+          <input type="number" class="form-control" id="tariffMax" required>
+        </div>
+        <div class="mb-3">
+          <label for="tariffDesc" class="form-label">Описание</label>
+          <input type="text" class="form-control" id="tariffDesc">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="submit" class="btn btn-gradient">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    // Utility functions
+    function renderRate(val) {
+        if (!val) return '';
+        if (typeof val === 'string' && /^(\d{2}:\d{2}(:\d{2})?)$/.test(val)) return '';
+        return Number(val).toFixed(2);
+    }
+    function formatTimeOnly(dt) {
+        if (!dt) return '';
+        const d = new Date(dt);
+        return d.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+    }
+    function formatDateTime(dt) {
+        if (!dt) return '';
+        const d = new Date(dt);
+        return d.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    }
+    function renderStatusBadge(status) {
+        let text = '';
+        let cls = '';
+        switch (status) {
+            case 'active':
+                text = 'Активный';
+                cls = 'badge-active';
+                break;
+            case 'completed':
+                text = 'Завершён';
+                cls = 'badge-completed';
+                break;
+            case 'timeout':
+                text = 'Таймаут';
+                cls = 'badge-timeout';
+                break;
+            case 'manual':
+                text = 'Вручную';
+                cls = 'badge-manual';
+                break;
+            default:
+                text = status;
+                cls = 'bg-secondary';
+        }
+        return `<span class="badge ${cls}">${text}</span>`;
+    }
+    function renderPlate(number) {
+        if (!number || number.length < 5) return number;
+        const region = number.slice(0,2);
+        let digits = "";
+        let letters = "";
+        if (/^\d{2}\d{3}[A-ZА-Я]{3}$/i.test(number)) {
+            digits = number.slice(2,5);
+            letters = number.slice(5,8);
+        } else {
+            digits = number.slice(2);
+            letters = "";
+        }
+        return `<span class="plate-simple"><span class="plate-region">${region}</span><span class="plate-sep"></span><span class="plate-main">${digits}${letters}</span></span>`;
+    }
+
+    // Mode management
+    function updateCurrentMode() {
+        fetch('/admin/parking-mode')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('currentMode').textContent = data.mode === 'free' ? 'Без оплаты' : 'С оплатой';
+                document.getElementById('modeSwitch').checked = data.mode === 'free';
+                document.getElementById('modeSwitchLabel').textContent = data.mode === 'free' ? 'Без оплаты' : 'С оплатой';
+            });
+    }
+    document.getElementById('modeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const mode = document.getElementById('modeSwitch').checked ? 'free' : 'paid';
+        fetch('/admin/parking-mode', {
+            method: 'POST',
+            body: new URLSearchParams({mode}),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+        }).then(() => updateCurrentMode());
+    });
+    updateCurrentMode();
+
+    // Tariff management
+    let tariffModal = new bootstrap.Modal(document.getElementById('tariffModal'));
+    function loadTariffs() {
+        fetch('/tariffs/list')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.querySelector('#tariffsTable tbody');
+                tbody.innerHTML = '';
+                if (data.tariffs && data.tariffs.length) {
+                    data.tariffs.forEach(tariff => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${tariff.name}</td>
+                                <td>${renderRate(tariff.hourly_rate)}</td>
+                                <td>${renderRate(tariff.night_rate)}</td>
+                                <td>${tariff.free_minutes}</td>
+                                <td>${tariff.max_hours}</td>
+                                <td>${tariff.is_active ? '<span class="badge bg-success">Да</span>' : ''}</td>
+                                <td>${tariff.valid_from ? formatDateTime(tariff.valid_from) : ''}</td>
+                                <td>${tariff.valid_until ? formatDateTime(tariff.valid_until) : ''}</td>
+                                <td>${tariff.description || ''}</td>
+                                <td>
+                                    ${!tariff.is_active ? `
+                                    <div class="dropdown">
+                                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Действия
+                                      </button>
+                                      <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" onclick="activateTariff(${tariff.id});return false;">Активировать</a></li>
+                                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteTariff(${tariff.id});return false;">Удалить</a></li>
+                                      </ul>
+                                    </div>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Нет тарифов</td></tr>';
+                }
+            });
+    }
+    function activateTariff(id) {
+        fetch(`/tariffs/activate/${id}`, {method: 'POST'})
+            .then(() => loadTariffs());
+    }
+    function deleteTariff(id) {
+        if (confirm('Удалить тариф?')) {
+            fetch(`/tariffs/${id}`, {method: 'DELETE'})
+                .then(r => {
+                    if (!r.ok) {
+                        return r.json().then(data => { throw new Error(data.detail || "Ошибка удаления"); });
+                    }
+                    loadTariffs();
+                })
+                .catch(e => alert("Ошибка: " + e.message));
+        }
+    }
+    document.getElementById('tariffs-tab').addEventListener('click', function() {
+        loadTariffs();
+        if (!window._tariffsInterval) {
+            window._tariffsInterval = setInterval(loadTariffs, 5000);
+        }
+    });
+    document.getElementById('addTariffBtn').addEventListener('click', function() {
+        document.getElementById('tariffForm').reset();
+        tariffModal.show();
+    });
+    document.getElementById('tariffForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById('tariffName').value.trim(),
+            hourly_rate: parseFloat(document.getElementById('tariffHourly').value),
+            night_rate: parseFloat(document.getElementById('tariffNight').value),
+            free_minutes: parseInt(document.getElementById('tariffFree').value),
+            max_hours: parseInt(document.getElementById('tariffMax').value),
+            description: document.getElementById('tariffDesc').value.trim()
+        };
+        fetch('/tariffs/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(() => {
+            tariffModal.hide();
+            loadTariffs();
+        });
+    });
+
+    // Whitelist management
+    let whitelistModal = new bootstrap.Modal(document.getElementById('whitelistModal'));
+    function loadWhitelist() {
+        fetch('/admin/whitelist')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.querySelector('#whitelistTable tbody');
+                tbody.innerHTML = '';
+                if (data && data.length) {
+                    data.forEach(entry => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${renderPlate(entry.plate_number)}</td>
+                                <td>${entry.valid_from ? formatDateTime(entry.valid_from) : ''}</td>
+                                <td>${entry.valid_until ? formatDateTime(entry.valid_until) : ''}</td>
+                                <td>${entry.comment || ''}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editWhitelist(${entry.id})">✏️</button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteWhitelist(${entry.id})">🗑️</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Нет номеров</td></tr>';
+                }
+            });
+    }
+    document.getElementById('whitelist-tab').addEventListener('click', function() {
+        loadWhitelist();
+        if (!window._whitelistInterval) {
+            window._whitelistInterval = setInterval(loadWhitelist, 5000);
+        }
+    });
+    document.getElementById('addWhitelistBtn').addEventListener('click', function() {
+        document.getElementById('whitelistForm').reset();
+        document.getElementById('whitelistId').value = '';
+        document.getElementById('whitelistModalLabel').textContent = 'Добавить номер в белый список';
+        whitelistModal.show();
+    });
+    function editWhitelist(id) {
+        fetch('/admin/whitelist')
+            .then(r => r.json())
+            .then(data => {
+                const entry = data.find(e => e.id === id);
+                if (entry) {
+                    document.getElementById('whitelistId').value = entry.id;
+                    document.getElementById('plateNumber').value = entry.plate_number;
+                    document.getElementById('validFrom').value = entry.valid_from ? entry.valid_from.slice(0,16) : '';
+                    document.getElementById('validUntil').value = entry.valid_until ? entry.valid_until.slice(0,16) : '';
+                    document.getElementById('whitelistComment').value = entry.comment || '';
+                    document.getElementById('whitelistModalLabel').textContent = 'Редактировать номер';
+                    whitelistModal.show();
+                }
+            });
+    }
+    document.getElementById('whitelistForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('whitelistId').value;
+        const plate_number = document.getElementById('plateNumber').value.trim();
+        const valid_from = document.getElementById('validFrom').value;
+        const valid_until = document.getElementById('validUntil').value;
+        const comment = document.getElementById('whitelistComment').value.trim();
+        const payload = {
+            plate_number,
+            valid_from: valid_from ? new Date(valid_from).toISOString() : null,
+            valid_until: valid_until ? new Date(valid_until).toISOString() : null,
+            comment
+        };
+        if (id) {
+            fetch(`/admin/whitelist/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(() => {
+                whitelistModal.hide();
+                loadWhitelist();
+            });
+        } else {
+            fetch('/admin/whitelist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(() => {
+                whitelistModal.hide();
+                loadWhitelist();
+            });
+        }
+    });
+    function deleteWhitelist(id) {
+        if (confirm('Удалить номер из белого списка?')) {
+            fetch(`/admin/whitelist/${id}`, {method: 'DELETE'})
+                .then(() => loadWhitelist());
+        }
+    }
+
+    // Active visits management with improved filtering
+    function loadActiveVisits() {
+        const plate = document.getElementById('activePlateSearch').value.trim();
+        const sort = document.getElementById('activeSortOrder').value;
+        
+        let url = '/admin/active-visits';
+        let params = [];
+        if (plate) params.push(`plate=${encodeURIComponent(plate)}`);
+        if (sort) params.push(`sort=${encodeURIComponent(sort)}`);
+        if (params.length) url += '?' + params.join('&');
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.querySelector('#activeVisitsTable tbody');
+                tbody.innerHTML = '';
+                document.getElementById('activeCount').textContent = data.length;
+                if (data.length) {
+                    data.forEach(entry => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${renderPlate(entry.plate_number)}</td>
+                                <td>${entry.entry_time ? formatDateTime(entry.entry_time) : ''}</td>
+                                <td>${entry.entry_camera_ip || ''}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">Нет активных машин</td></tr>';
+                }
+            });
+    }
+
+    document.getElementById('active-tab').addEventListener('click', function() {
+        loadActiveVisits();
+        if (!window._activeInterval) {
+            window._activeInterval = setInterval(loadActiveVisits, 5000);
+        }
+    });
+
+    // Real-time search for active visits
+    document.getElementById('activePlateSearch').addEventListener('input', function() {
+        loadActiveVisits();
+    });
+
+    document.getElementById('activeSortOrder').addEventListener('change', function() {
+        loadActiveVisits();
+    });
+
+    // Clear active filters
+    document.getElementById('clearActiveFilters').addEventListener('click', function() {
+        document.getElementById('activePlateSearch').value = '';
+        document.getElementById('activeSortOrder').value = 'desc';
+        loadActiveVisits();
+    });
+
+    // Visits management with improved filtering
+    function loadVisitsByDate() {
+        const day = document.getElementById('visitsDate').value;
+        const status = document.getElementById('statusFilter').value;
+        let entryFrom = document.getElementById('entryFrom').value;
+        let entryTo = document.getElementById('entryTo').value;
+        const plate = document.getElementById('plateSearch').value.trim();
+        const sort = document.getElementById('sortOrder').value;
+
+        // Combine date and time for entryFrom/entryTo if only time is entered
+        function combineDateTime(date, time) {
+            if (!date || !time) return "";
+            // If time already contains date, return as is
+            if (/^\d{4}-\d{2}-\d{2}/.test(time)) return time;
+            // If time is only HH:mm or HH:mm:ss, combine with date
+            return date + " " + time;
+        }
+        if (entryFrom) entryFrom = combineDateTime(day, entryFrom);
+        if (entryTo) entryTo = combineDateTime(day, entryTo);
+
+        let params = [];
+        if (day) params.push(`day=${encodeURIComponent(day)}`);
+        if (status) params.push(`status=${encodeURIComponent(status)}`);
+        if (entryFrom) params.push(`entry_from=${encodeURIComponent(entryFrom)}`);
+        if (entryTo) params.push(`entry_to=${encodeURIComponent(entryTo)}`);
+        if (plate) params.push(`plate=${encodeURIComponent(plate)}`);
+        if (sort) params.push(`sort=${encodeURIComponent(sort)}`);
+
+        const url = '/admin/visits-by-date' + (params.length ? '?' + params.join('&') : '');
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.querySelector('#visitsByDateTable tbody');
+                tbody.innerHTML = '';
+                document.getElementById('visitsCount').textContent = data.length;
+                if (data.length) {
+                    data.forEach(entry => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${renderPlate(entry.plate_number)}</td>
+                                <td>${entry.entry_time ? formatDateTime(entry.entry_time) : ''}</td>
+                                <td>${entry.exit_time ? formatDateTime(entry.exit_time) : ''}</td>
+                                <td>${renderStatusBadge(entry.visit_status)}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Нет визитов</td></tr>';
+                }
+            });
+    }
+
+    document.getElementById('visits-tab').addEventListener('click', function() {
+        if (!window._flatpickrInit) {
+            flatpickr("#visitsDate", {
+                dateFormat: "Y-m-d",
+                defaultDate: new Date(),
+                locale: "ru",
+                onChange: loadVisitsByDate
+            });
+            flatpickr("#entryFrom", {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                locale: "ru"
+            });
+            flatpickr("#entryTo", {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                locale: "ru"
+            });
+            window._flatpickrInit = true;
+        }
+        const dateInput = document.getElementById('visitsDate');
+        if (!dateInput.value) {
+            const today = new Date();
+            dateInput.value = today.toISOString().slice(0,10);
+        }
+        loadVisitsByDate();
+        if (!window._visitsInterval) {
+            window._visitsInterval = setInterval(loadVisitsByDate, 5000);
+        }
+    });
+
+    // Real-time filtering for visits
+    document.getElementById('statusFilter').addEventListener('change', loadVisitsByDate);
+    document.getElementById('plateSearch').addEventListener('input', loadVisitsByDate);
+    document.getElementById('sortOrder').addEventListener('change', loadVisitsByDate);
+
+    // Clear visits filters
+    document.getElementById('clearVisitsFilters').addEventListener('click', function() {
+        document.getElementById('visitsDate').value = new Date().toISOString().slice(0,10);
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('entryFrom').value = '';
+        document.getElementById('entryTo').value = '';
+        document.getElementById('plateSearch').value = '';
+        document.getElementById('sortOrder').value = 'desc';
+        loadVisitsByDate();
+    });
+
+    // Server Errors Tab
+    function loadServerErrors() {
+        const logElem = document.getElementById('serverErrorsLog');
+        const level = document.getElementById('logLevelSelect').value;
+        logElem.textContent = 'Загрузка...';
+        fetch(`/admin/server-errors?lines=50&level=${encodeURIComponent(level)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.logs && data.logs.length) {
+                    logElem.textContent = data.logs.join('\n');
+                } else if (data.error) {
+                    logElem.textContent = 'Ошибка: ' + data.error;
+                } else {
+                    logElem.textContent = 'Нет логов за последние события.';
+                }
+            })
+            .catch(e => {
+                logElem.textContent = 'Ошибка загрузки: ' + e;
+            });
+    }
+    document.getElementById('errors-tab').addEventListener('click', function() {
+        loadServerErrors();
+    });
+    document.getElementById('refreshErrorsBtn').addEventListener('click', function() {
+        loadServerErrors();
+    });
+    document.getElementById('logLevelSelect').addEventListener('change', function() {
+        loadServerErrors();
+    });
+</script>
+</body>
+</html>

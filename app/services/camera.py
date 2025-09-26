@@ -61,33 +61,46 @@ def is_duplicate_event(camera_ip: str, plate: str, raw_event: str) -> bool:
 
 
 def is_valid_plate(plate: str) -> bool:
-    """Усиленная проверка валидности номера"""
+    """
+    Более гибкая проверка валидности номера:
+    - Разрешает номера с >=2 уникальными символами
+    - Разрешает только буквы или только цифры если длина >= 6
+    - По-прежнему блокирует подозрительные паттерны
+    """
     if not plate or len(plate) < PARKING_CONFIG["min_plate_length"] or len(plate) > 12:
-        return False
-
-    has_letters = any(c.isalpha() for c in plate)
-    has_digits = any(c.isdigit() for c in plate)
-   
-    if not (has_letters and has_digits):
         return False
 
     suspicious = ['0000', '1111', '2222', 'AAAA', 'BBBB', 'XXXX', 'TEST', '00000', '11111']
     if any(sus in plate for sus in suspicious):
         return False
 
-    if len(set(plate)) < 3:
+    unique_chars = set(plate)
+    if len(unique_chars) < 2:
         return False
-   
-    return True
+
+    has_letters = any(c.isalpha() for c in plate)
+    has_digits = any(c.isdigit() for c in plate)
+
+    if has_letters and has_digits:
+        return True
+
+    if (has_letters or has_digits) and len(plate) >= 6:
+        return True
+
+    return False
 
 
 def find_plate_number(text):
-    """Улучшенное распознавание номеров с повышенной точностью"""
+    """
+    Улучшенное распознавание номеров:
+    - Возвращает лучший найденный номер даже если он не прошел строгую валидацию (для диагностики)
+    - Логирует все кандидаты и причину отклонения
+    """
     if not text:
         return ""
    
     print(f"🔍 Analyzing {len(text)} characters for plate numbers...")
-  
+
     if len(text) > 1000:
         xml_parts = []
         json_parts = []
@@ -107,7 +120,7 @@ def find_plate_number(text):
             analysis_text = text[:2000]
     else:
         analysis_text = text
-   
+
     plate_patterns = [
         (r'<plateNumber[^>]*>\s*([A-Z0-9]+)\s*</plateNumber>', 100),
         (r'<plateNo[^>]*>\s*([A-Z0-9]+)\s*</plateNo>', 95),
@@ -119,11 +132,11 @@ def find_plate_number(text):
         (r'"plate"\s*:\s*"([A-Z0-9]+)"', 70),
         (r'"licensePlate"\s*:\s*"([A-Z0-9]+)"', 65),
 
-        (r'\b([0-9]{5}[A-Z]{1,3})\b', 90),  # 01008ABM, 12345ABC
-        (r'\b([0-9]{2}[A-Z]{3}[0-9]{2})\b', 85),  # 01ABC23 (новый формат)
-        (r'\b([0-9]{2}KG[0-9]{3}[A-Z]{3})\b', 80),  # 01KG123ABC (юр.лица)
-        (r'\b(T[0-9]{4}[A-Z]{2})\b', 75),  # T1234AB (транзитные)
-        (r'\b([CD|MO][0-9]{3,4})\b', 70),  # CD1234, MO1234 (дипломатические)
+        (r'\b([0-9]{5}[A-Z]{1,3})\b', 90),
+        (r'\b([0-9]{2}[A-Z]{3}[0-9]{2})\b', 85),
+        (r'\b([0-9]{2}KG[0-9]{3}[A-Z]{3})\b', 80),
+        (r'\b(T[0-9]{4}[A-Z]{2})\b', 75),
+        (r'\b([CD|MO][0-9]{3,4})\b', 70),
 
         (r'\b([A-Z]{1,2}[0-9]{3,4}[A-Z]{1,3})\b', 60),
         (r'\b([0-9]{2,3}[A-Z]{2,3}[0-9]{2,3})\b', 55),
@@ -139,9 +152,10 @@ def find_plate_number(text):
         (r'Plate[:\s]*([A-Z0-9]{5,10})', 30),
         (r'License[:\s]*([A-Z0-9]{5,10})', 25),
     ]
-   
+
     found_candidates = []
-   
+    all_candidates = []
+
     for i, (pattern, priority) in enumerate(plate_patterns):
         try:
             matches = re.findall(pattern, analysis_text, re.IGNORECASE | re.MULTILINE)
@@ -152,14 +166,14 @@ def find_plate_number(text):
                 if match and len(match.strip()) >= PARKING_CONFIG["min_plate_length"]:
                     plate = match.strip().upper()
                     plate = ''.join(c for c in plate if c.isalnum())
-                   
+                    all_candidates.append(plate)
                     if is_valid_plate(plate):
                         bonus = get_plate_format_bonus(plate)
                         final_score = priority + bonus
-                       
                         found_candidates.append((plate, final_score, i+1))
                         print(f"🎯 Pattern {i+1} found: '{plate}' (score: {final_score})")
-                       
+                    else:
+                        print(f"⚠️ Pattern {i+1} candidate rejected: '{plate}' (not valid by rules)")
         except Exception as e:
             print(f"⚠️ Pattern {i+1} error: {e}")
             continue
@@ -180,8 +194,12 @@ def find_plate_number(text):
             print(f"🔄 Alternatives: {', '.join(alternatives)}")
        
         return best_plate
-   
-    print("❌ No valid plate number found")
+
+    if all_candidates:
+        print(f"❗ No valid plate, but found candidates: {all_candidates}")
+        return all_candidates[0]
+
+    print("❌ No plate number found at all")
     return ""
 
 
