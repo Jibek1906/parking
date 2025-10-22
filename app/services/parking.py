@@ -1,6 +1,4 @@
-"""
-Модуль бизнес-логики парковки с интеграцией оплаты (въезд/выезд/стоимость/платежи)
-"""
+"""Модуль бизнес-логики парковки с интеграцией оплаты (въезд/выезд/стоимость/платежи)"""
 from datetime import datetime, timedelta
 from ..config import KYRGYZSTAN_TZ, PARKING_CONFIG, BAKAI_CONFIG
 from ..db import get_db_connection
@@ -8,6 +6,194 @@ from .barrier import open_barrier
 from app.models import get_whitelist
 from datetime import datetime
 from .camera import is_valid_plate
+
+def get_payment_analytics(day: str = None):
+    """
+    Возвращает аналитику по оплатам за выбранный день:
+    - общее количество оплат
+    - общая сумма
+    - список оплат (номер, сумма, время, статус, оператор)
+    - сколько времени был включен режим оплаты (если возможно)
+    """
+    from collections import defaultdict
+    from datetime import datetime, date, timedelta
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        if not day:
+            day = date.today().isoformat()
+        cur.execute("""
+            SELECT id, plate_number, amount, payment_status, paid_at, created_at, bakai_operation_id
+            FROM parking_payments
+            WHERE DATE(paid_at) = %s AND payment_status = 'paid'
+            ORDER BY paid_at ASC
+        """, (day,))
+        rows = cur.fetchall()
+        payments = []
+        total_sum = 0
+        for row in rows:
+            payment = {
+                "id": row[0],
+                "plate_number": row[1],
+                "amount": float(row[2]),
+                "payment_status": row[3],
+                "paid_at": row[4].isoformat() if row[4] else None,
+                "created_at": row[5].isoformat() if row[5] else None,
+                "operator": row[6]
+            }
+            payments.append(payment)
+            total_sum += float(row[2])
+        from ..config import PARKING_CONFIG
+        paid_mode = PARKING_CONFIG.get("mode", "paid")
+        paid_mode_duration = 24 * 60 if paid_mode == "paid" else 0
+        return {
+            "date": day,
+            "payments_count": len(payments),
+            "total_sum": round(total_sum, 2),
+            "payments": payments,
+            "paid_mode_minutes": paid_mode_duration
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+def get_parking_analytics(days: int = 7):
+    """
+    Возвращает общую аналитику по парковке за последние days дней:
+    - среднее количество въездов в день
+    - среднее количество въездов/выездов по часам (для выявления пиков/минимумов)
+    - среднее время стоянки
+    - среднее время стоянки по дням недели (0=Пн, 6=Вс)
+    - распределение въездов/выездов по дням недели (для графика)
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        from collections import Counter, defaultdict
+        cur.execute("""
+            SELECT entry_time, duration_minutes
+            FROM parking_visits
+            WHERE entry_time >= NOW() - INTERVAL '%s days'
+              AND visit_status IN ('completed', 'manual', 'timeout')
+        """, (days,))
+        entry_rows = cur.fetchall()
+        cur.execute("""
+            SELECT exit_time
+            FROM parking_visits
+            WHERE exit_time IS NOT NULL
+              AND exit_time >= NOW() - INTERVAL '%s days'
+              AND visit_status IN ('completed', 'manual', 'timeout')
+        """, (days,))
+        exit_rows = cur.fetchall()
+        if not entry_rows and not exit_rows:
+            return {
+                "avg_entries_per_day": 0,
+                "hourly_distribution": {},
+                "hourly_exit_distribution": {},
+                "avg_duration_minutes": 0,
+                "weekday_avg_duration": {},
+                "weekday_entry_distribution": {},
+                "weekday_exit_distribution": {}
+            }
+        day_counter = Counter()
+        hour_entry_counter = Counter()
+        durations = []
+        weekday_durations = defaultdict(list)
+        weekday_entry_counter = Counter()
+        for entry_time, duration in entry_rows:
+            if entry_time:
+                day_counter[entry_time.date()] += 1
+                hour_entry_counter[entry_time.hour] += 1
+                weekday = entry_time.weekday()
+                weekday_entry_counter[weekday] += 1
+                if duration:
+                    weekday_durations[weekday].append(duration)
+            if duration:
+                durations.append(duration)
+        hour_exit_counter = Counter()
+        weekday_exit_counter = Counter()
+        for (exit_time,) in exit_rows:
+            if exit_time:
+                hour_exit_counter[exit_time.hour] += 1
+                weekday = exit_time.weekday()
+                weekday_exit_counter[weekday] += 1
+        avg_entries_per_day = sum(day_counter.values()) / max(1, len(day_counter))
+        hourly_distribution = {h: hour_entry_counter[h] for h in range(24)}
+        hourly_exit_distribution = {h: hour_exit_counter[h] for h in range(24)}
+        avg_duration_minutes = int(sum(durations) / max(1, len(durations))) if durations else 0
+        weekday_avg_duration = {}
+        for wd in range(7):
+            vals = weekday_durations.get(wd, [])
+            weekday_avg_duration[wd] = int(sum(vals) / len(vals)) if vals else 0
+        weekday_entry_distribution = {wd: weekday_entry_counter[wd] for wd in range(7)}
+        weekday_exit_distribution = {wd: weekday_exit_counter[wd] for wd in range(7)}
+        return {
+            "avg_entries_per_day": round(avg_entries_per_day, 2),
+            "hourly_distribution": hourly_distribution,
+            "hourly_exit_distribution": hourly_exit_distribution,
+            "avg_duration_minutes": avg_duration_minutes,
+            "weekday_avg_duration": weekday_avg_duration,
+            "weekday_entry_distribution": weekday_entry_distribution,
+            "weekday_exit_distribution": weekday_exit_distribution
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+def get_plate_analytics(days: int = 7):
+    """
+    Возвращает список всех номеров с их статистикой за последние days дней:
+    - сколько раз заезжал
+    - среднее время стоянки
+    - средний час въезда/выезда
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT plate_number, entry_time, exit_time, duration_minutes
+            FROM parking_visits
+            WHERE entry_time >= NOW() - INTERVAL '%s days'
+              AND plate_number IS NOT NULL
+              AND visit_status IN ('completed', 'manual', 'timeout')
+        """, (days,))
+        rows = cur.fetchall()
+        from collections import defaultdict
+        stats = defaultdict(lambda: {
+            "count": 0,
+            "total_duration": 0,
+            "entry_hours": [],
+            "exit_hours": []
+        })
+        for plate, entry_time, exit_time, duration in rows:
+            if not plate:
+                continue
+            s = stats[plate]
+            s["count"] += 1
+            if duration:
+                s["total_duration"] += duration
+            if entry_time:
+                s["entry_hours"].append(entry_time.hour)
+            if exit_time:
+                s["exit_hours"].append(exit_time.hour)
+        result = []
+        for plate, s in stats.items():
+            avg_duration = int(s["total_duration"] / s["count"]) if s["count"] else 0
+            avg_entry_hour = round(sum(s["entry_hours"]) / len(s["entry_hours"]), 1) if s["entry_hours"] else None
+            avg_exit_hour = round(sum(s["exit_hours"]) / len(s["exit_hours"]), 1) if s["exit_hours"] else None
+            result.append({
+                "plate_number": plate,
+                "count": s["count"],
+                "avg_duration_minutes": avg_duration,
+                "avg_entry_hour": avg_entry_hour,
+                "avg_exit_hour": avg_exit_hour
+            })
+        result.sort(key=lambda x: x["count"], reverse=True)
+        return result
+    finally:
+        cur.close()
+        conn.close()
+
 def is_plate_in_whitelist(plate: str) -> bool:
     """
     Проверяет, есть ли номер в белом списке с валидным сроком действия
@@ -177,23 +363,50 @@ def close_expired_sessions():
 
 def process_entry(camera_ip: str, plate: str, event_id: int) -> dict:
     """Обработка въезда - ТОЛЬКО С ВАЛИДНЫМ НОМЕРОМ"""
-    if not plate or not is_valid_plate(plate):
-        print(f"❌ Entry denied - invalid or missing plate number: '{plate}'")
+    if not plate or plate.strip().upper() == "UNKNOWN" or not is_valid_plate(plate):
+        print(f"❌ Entry denied or UNKNOWN plate: '{plate}' — just open barrier, do not save to DB")
+        barrier_opened = open_barrier(camera_ip)
         return {
-            "error": "No valid plate number detected",
-            "barrier_opened": False,
-            "message": f"Въезд заблокирован - номер не распознан или недействителен: '{plate}'"
+            "action": "unknown_plate",
+            "barrier_opened": barrier_opened,
+            "message": f"Въезд: номер не распознан (шлагбаум {'открыт' if barrier_opened else 'не открыт'})"
         }
 
     if is_plate_in_whitelist(plate):
         barrier_opened = open_barrier(camera_ip)
         print(f"🚦 Белый список: въезд {plate} - шлагбаум открыт бесплатно")
-        return {
-            "action": "entry_whitelist",
-            "plate": plate,
-            "barrier_opened": barrier_opened,
-            "message": f"Въезд: {plate} (белый список) - шлагбаум открыт бесплатно"
-        }
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            entry_time = datetime.now(KYRGYZSTAN_TZ)
+            cur.execute("""
+                INSERT INTO parking_visits
+                (plate_number, entry_time, entry_camera_ip, entry_event_id,
+                 visit_status, entry_barrier_opened, cost_amount, cost_description, notes)
+                VALUES (%s, %s, %s, %s, 'active', %s, 0, 'Белый список', 'Въезд по белому списку')
+                RETURNING id
+            """, (plate, entry_time, camera_ip, event_id, barrier_opened))
+            session_id = cur.fetchone()[0]
+            conn.commit()
+            return {
+                "action": "entry_whitelist",
+                "session_id": session_id,
+                "plate": plate,
+                "entry_time": entry_time.isoformat(),
+                "barrier_opened": barrier_opened,
+                "message": f"Въезд: {plate} (белый список) - шлагбаум открыт бесплатно, запись создана"
+            }
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error processing entry (whitelist): {e}")
+            return {
+                "error": str(e),
+                "barrier_opened": barrier_opened,
+                "message": f"Ошибка въезда {plate} (белый список) - шлагбаум открыт, но запись не создана"
+            }
+        finally:
+            cur.close()
+            conn.close()
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -290,12 +503,13 @@ def process_entry(camera_ip: str, plate: str, event_id: int) -> dict:
 
 def process_exit(camera_ip: str, plate: str, event_id: int) -> dict:
     """Обработка выезда с ИНТЕГРАЦИЕЙ ПЛАТЕЖЕЙ или в режиме free"""
-    if not plate or not is_valid_plate(plate):
-        print(f"❌ Exit denied - invalid or missing plate number: '{plate}'")
+    if not plate or plate.strip().upper() == "UNKNOWN" or not is_valid_plate(plate):
+        print(f"❌ Exit denied or UNKNOWN plate: '{plate}' — just open barrier, do not save to DB")
+        barrier_opened = open_barrier(camera_ip)
         return {
-            "error": "No valid plate number detected",
-            "barrier_opened": False,
-            "message": f"Выезд заблокирован - номер не распознан или недействителен: '{plate}'"
+            "action": "unknown_plate",
+            "barrier_opened": barrier_opened,
+            "message": f"Выезд: номер не распознан (шлагбаум {'открыт' if barrier_opened else 'не открыт'})"
         }
 
     if is_plate_in_whitelist(plate):
@@ -341,12 +555,27 @@ def process_exit(camera_ip: str, plate: str, event_id: int) -> dict:
                 }
             else:
                 print(f"🚦 Белый список: выезд {plate} - активная сессия не найдена")
+                now = datetime.now(KYRGYZSTAN_TZ)
+                cur.execute("""
+                    INSERT INTO parking_visits
+                    (plate_number, entry_time, exit_time, duration_minutes, cost_amount,
+                     cost_description, visit_status, exit_camera_ip, exit_event_id,
+                     exit_barrier_opened, notes)
+                    VALUES (%s, %s, %s, 0, 0, 'Белый список, выезд без въезда', 'manual', %s, %s, %s,
+                            'Выезд по белому списку без активной сессии')
+                    RETURNING id
+                """, (
+                    plate, now, now, camera_ip, event_id, barrier_opened
+                ))
+                session_id = cur.fetchone()[0]
+                conn.commit()
                 return {
                     "action": "exit_whitelist",
+                    "session_id": session_id,
                     "plate": plate,
                     "barrier_opened": barrier_opened,
                     "payment_required": False,
-                    "message": f"Выезд: {plate} (белый список) - шлагбаум открыт бесплатно (активная сессия не найдена)"
+                    "message": f"Выезд: {plate} (белый список) - шлагбаум открыт бесплатно (активная сессия не найдена, запись создана)"
                 }
         finally:
             cur.close()

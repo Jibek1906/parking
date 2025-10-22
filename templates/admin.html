@@ -6,13 +6,15 @@
     <title>Админка парковки</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: radial-gradient(circle at top, #0f172a, #020617);
             min-height: 100vh;
+            color: #000000;
         }
         .nav-tabs .nav-link.active {
-            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(90deg, #4facfe 0%, #53a9ee 100%);
             color: #fff !important;
             border: none;
         }
@@ -35,12 +37,12 @@
             color: #fff;
         }
         .btn-gradient {
-            background: linear-gradient(90deg, #00b894 0%, #00a085 100%);
+            background: linear-gradient(90deg, #226fb0 0%, #1b476d 100%);
             color: #fff;
             border: none;
         }
         .btn-gradient:hover {
-            background: linear-gradient(90deg, #0984e3 0%, #00b894 100%);
+            background: linear-gradient(90deg, #0984e3 0%, #51abf8 100%);
         }
         .flatpickr-calendar {
             z-index: 9999 !important;
@@ -111,10 +113,43 @@
 </head>
 <body>
 <div class="container py-5">
-    <h2 class="mb-4 fw-bold text-center">Админка парковки</h2>
+    <!-- Новый header в стиле idle.html, адаптированный под светлый фон -->
+    <div class="d-flex align-items-center justify-content-between mb-4 px-2 py-3 rounded-3">
+      <div class="d-flex align-items-center gap-3">
+        <div style="width:56px;height:56px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;">
+          <img src="/static/1.jpg" alt="Логотип" style="width:44px;height:44px;object-fit:contain;">
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:600;color:#fff;letter-spacing:-1px;">Smart Parking</div>
+          <div style="color:#cbd5e1;font-size:1rem;margin-top:2px;">Cистема умной парковки</div>
+        </div>
+      </div>
+      <div class="text-end">
+        <div id="adminHeaderTime" style="font-size:2.2rem;font-weight:400;color:#fff;letter-spacing:1px;"></div>
+        <div style="color:#64748b;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Текущее время</div>
+      </div>
+    </div>
+    <script>
+      function updateAdminHeaderTime() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        const el = document.getElementById('adminHeaderTime');
+        if (el) el.textContent = `${h}:${m}:${s}`;
+      }
+      updateAdminHeaderTime();
+      setInterval(updateAdminHeaderTime, 1000);
+    </script>
     <ul class="nav nav-tabs" id="adminTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="mode-tab" data-bs-toggle="tab" data-bs-target="#modeTab" type="button" role="tab">Режим</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="barrier-tab" data-bs-toggle="tab" data-bs-target="#barrierTab" type="button" role="tab">Шлагбаум</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="cameras-tab" data-bs-toggle="tab" data-bs-target="#camerasTab" type="button" role="tab">Камеры</button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tariffs-tab" data-bs-toggle="tab" data-bs-target="#tariffsTab" type="button" role="tab">Тарифы</button>
@@ -127,6 +162,12 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="visits-tab" data-bs-toggle="tab" data-bs-target="#visitsTab" type="button" role="tab">Визиты</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#paymentsTab" type="button" role="tab">Платежи</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analyticsTab" type="button" role="tab">Аналитика</button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="errors-tab" data-bs-toggle="tab" data-bs-target="#errorsTab" type="button" role="tab">Ошибки сервера</button>
@@ -147,6 +188,48 @@
                 <span id="currentMode" class="badge bg-info text-dark">Загрузка...</span>
             </div>
         </div>
+<div class="tab-pane fade" id="barrierTab" role="tabpanel">
+            <h5 class="fw-bold mb-4">Управление шлагбаумом</h5>
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="text-center mb-4">
+                        <div class="d-inline-flex justify-content-center align-items-center mb-3" style="width: 80px; height: 80px; border-radius: 50%; background: #f8f9fa; border: 2px solid #dee2e6;">
+                            <span style="font-size: 2.5rem;">&#128682;</span>
+                        </div>
+                        <p class="text-muted mb-4">Нажмите кнопку для открытия шлагбаума</p>
+                    </div>
+                    <form id="barrierForm">
+                        <button type="submit" class="btn btn-gradient w-100 py-3 mb-3" style="font-size: 1.1rem;">
+                            Открыть шлагбаум
+                        </button>
+                        <div id="barrierResult" class="text-center" style="min-height: 2em;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="camerasTab" role="tabpanel">
+            <h5 class="fw-bold mb-4">Снимок с камер</h5>
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card p-3">
+                        <h6>Камера 1 (192.0.0.12)</h6>
+                        <div id="snapshot-192-0-0-12" class="mb-2 camera-snapshot-container" style="width:100%;max-width:500px;height:220px;display:flex;align-items:center;justify-content:center;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+                            <span class="text-muted">Нет снимка</span>
+                        </div>
+                        <button class="btn btn-gradient w-100" onclick="takeSnapshot('192.0.0.12', 'snapshot-192-0-0-12');return false;">Сделать снимок</button>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card p-3">
+                        <h6>Камера 2 (192.0.0.11)</h6>
+                        <div id="snapshot-192-0-0-11" class="mb-2 camera-snapshot-container" style="width:100%;max-width:500px;height:220px;display:flex;align-items:center;justify-content:center;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+                            <span class="text-muted">Нет снимка</span>
+                        </div>
+                        <button class="btn btn-gradient w-100" onclick="takeSnapshot('192.0.0.11', 'snapshot-192-0-0-11');return false;">Сделать снимок</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="tab-pane fade" id="tariffsTab" role="tabpanel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">Тарифы</h5>
@@ -162,8 +245,8 @@
                             <th>Бесплатно (мин)</th>
                             <th>Макс. часов</th>
                             <th>Активный</th>
-                            <th>Действует с</th>
-                            <th>Действует до</th>
+                            <!-- <th>Действует с</th>
+                            <th>Действует до</th> -->
                             <th>Описание</th>
                             <th>Действия</th>
                         </tr>
@@ -250,10 +333,10 @@
                     <div class="filter-title">Фильтры и поиск</div>
                     <form id="visitsFilterForm" class="mb-3">
                         <div class="row g-3 align-items-end mb-3">
-                            <div class="col-md-2">
+                            <!-- <div class="col-md-2">
                                 <label for="visitsDate" class="form-label">Дата</label>
                                 <input type="text" id="visitsDate" class="form-control">
-                            </div>
+                            </div> -->
                             <div class="col-md-2">
                                 <label for="statusFilter" class="form-label">Статус</label>
                                 <select id="statusFilter" class="form-select">
@@ -282,12 +365,16 @@
                         
                         <div class="row g-3 align-items-end">
                             <div class="col-md-2">
-                                <label for="entryFrom" class="form-label">Въезд с</label>
-                                <input type="text" id="entryFrom" class="form-control" placeholder="дата время">
+                                <label for="visitsDate" class="form-label">Дата</label>
+                                <input type="date" id="visitsDate" class="form-control">
                             </div>
                             <div class="col-md-2">
-                                <label for="entryTo" class="form-label">Въезд до</label>
-                                <input type="text" id="entryTo" class="form-control" placeholder="дата время">
+                                <label for="entryFrom" class="form-label">Въезд с (часы:минуты)</label>
+                                <input type="time" id="entryFrom" class="form-control" placeholder="часы:минуты">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="entryTo" class="form-label">Въезд до (часы:минуты)</label>
+                                <input type="time" id="entryTo" class="form-control" placeholder="часы:минуты">
                             </div>
                             <div class="col-md-2">
                                 <span class="fw-semibold d-block">Всего найдено:</span>
@@ -309,6 +396,134 @@
                         </thead>
                         <tbody>
                             <tr><td colspan="4" class="text-center">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="paymentsTab" role="tabpanel">
+            <div class="mb-4">
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-md-3">
+                        <label for="paymentsDate" class="form-label">Дата</label>
+                        <input type="date" id="paymentsDate" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <span class="fw-semibold d-block">Всего оплат:</span>
+                        <span id="paymentsCount" class="badge bg-success fs-6">0</span>
+                    </div>
+                </div>
+                <!-- Фильтрация и поиск -->
+                <div class="filter-box mb-4">
+                    <div class="filter-title">Фильтры и поиск</div>
+                    <form id="paymentsFilterForm" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="paymentsPlateSearch" class="form-label">Поиск по номеру</label>
+                            <input type="text" id="paymentsPlateSearch" class="form-control" placeholder="A123BC или часть номера">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="paymentsStatusFilter" class="form-label">Статус</label>
+                            <select id="paymentsStatusFilter" class="form-select">
+                                <option value="">Все</option>
+                                <option value="paid">Оплачено</option>
+                                <option value="pending">В ожидании</option>
+                                <option value="failed">Ошибка</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="paymentsMinAmount" class="form-label">Мин. сумма</label>
+                            <input type="number" id="paymentsMinAmount" class="form-control" min="0" step="0.01">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="paymentsMaxAmount" class="form-label">Макс. сумма</label>
+                            <input type="number" id="paymentsMaxAmount" class="form-control" min="0" step="0.01">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="paymentsSortOrder" class="form-label">Сортировка</label>
+                            <select id="paymentsSortOrder" class="form-select">
+                                <option value="desc">Новые сверху</option>
+                                <option value="asc">Старые сверху</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-secondary w-100" id="clearPaymentsFilters">Сброс</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-sm" style="background: linear-gradient(90deg, #4facfe 0%, #53a9ee 100%); color: #fff; border-radius: 1rem; display: flex; align-items: center; justify-content: center;">
+                            <div class="card-body py-3" style="flex:1;text-align:center;">
+                                <div style="font-size: 1.1rem; font-weight: 500; opacity:0.85;">Сумма оплат за день</div>
+                                <div id="paymentsSum" style="font-size: 2.7rem; font-weight: 700; margin-top: 0.5rem; letter-spacing:1px;">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <canvas id="paymentsChart" height="70"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="paymentsTable">
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Сумма</th>
+                                <th>Время оплаты</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4" class="text-center">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="analyticsTab" role="tabpanel">
+            <div class="mb-4">
+                <h5 class="fw-bold mb-2">Общая аналитика</h5>
+<div id="parkingAnalyticsBlock">
+    <div>Среднее количество въездов в день: <span id="avgEntriesPerDay">-</span></div>
+    <div>Среднее время стоянки: <span id="avgDuration">-</span></div>
+    <div class="mt-3">
+        <h6>Распределение въездов по часам</h6>
+        <div>
+            <canvas id="hourlyChart" height="80"></canvas>
+        </div>
+    </div>
+    <div class="mt-3">
+        <h6>Среднее время стоянки по дням недели (минуты)</h6>
+        <div>
+            <canvas id="weekdayAvgDurationChart" height="80"></canvas>
+        </div>
+    </div>
+    <div class="mt-3">
+        <h6>Въезды и выезды по дням недели</h6>
+        <div>
+            <canvas id="weekdayEntryExitChart" height="80"></canvas>
+        </div>
+    </div>
+</div>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-2">Аналитика по номерам (за неделю)</h5>
+                <div class="mb-3" style="max-width:300px;">
+                    <input type="text" id="platesAnalyticsSearch" class="form-control" placeholder="Поиск по номеру">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="platesAnalyticsTable">
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Заездов</th>
+                                <th>Среднее время стоянки</th>
+                                <th>Средний час въезда</th>
+                                <th>Средний час выезда</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -345,11 +560,11 @@
         </div>
         <div class="mb-3">
           <label for="validFrom" class="form-label">Срок с</label>
-          <input type="datetime-local" class="form-control" id="validFrom" required>
+          <input type="date" class="form-control" id="validFrom" required>
         </div>
         <div class="mb-3">
           <label for="validUntil" class="form-label">Срок до</label>
-          <input type="datetime-local" class="form-control" id="validUntil">
+          <input type="date" class="form-control" id="validUntil">
         </div>
         <div class="mb-3">
           <label for="whitelistComment" class="form-label">Комментарий</label>
@@ -408,7 +623,396 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-    // Utility functions
+let paymentsChart;
+let paymentsInterval = null;
+let paymentsDataRaw = [];
+let paymentsFiltered = [];
+function filterPaymentsData() {
+    const plate = document.getElementById('paymentsPlateSearch').value.trim().toUpperCase();
+    const status = document.getElementById('paymentsStatusFilter').value;
+    const minAmount = parseFloat(document.getElementById('paymentsMinAmount').value);
+    const maxAmount = parseFloat(document.getElementById('paymentsMaxAmount').value);
+    paymentsFiltered = paymentsDataRaw.filter(row => {
+        let ok = true;
+        if (plate && !(row.plate_number || '').toUpperCase().includes(plate)) ok = false;
+        if (status && row.payment_status !== status) ok = false;
+        if (!isNaN(minAmount) && row.amount < minAmount) ok = false;
+        if (!isNaN(maxAmount) && row.amount > maxAmount) ok = false;
+        return ok;
+    });
+}
+function renderPaymentsTableAndChart() {
+    document.getElementById('paymentsCount').textContent = paymentsFiltered.length;
+    let sum = paymentsFiltered.reduce((acc, row) => acc + row.amount, 0);
+    document.getElementById('paymentsSum').textContent = sum.toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' сом';
+    const tbody = document.querySelector('#paymentsTable tbody');
+    tbody.innerHTML = '';
+    if (paymentsFiltered.length) {
+        const sortOrder = document.getElementById('paymentsSortOrder').value;
+        let sorted = [...paymentsFiltered];
+        sorted.sort((a, b) => {
+            const tA = a.paid_at ? new Date(a.paid_at).getTime() : 0;
+            const tB = b.paid_at ? new Date(b.paid_at).getTime() : 0;
+            return sortOrder === 'asc' ? tA - tB : tB - tA;
+        });
+        sorted.forEach(row => {
+            tbody.innerHTML += `<tr>
+                <td>${renderPlate(row.plate_number)}</td>
+                <td>${row.amount.toFixed(2)}</td>
+                <td>${row.paid_at ? formatTimeOnly(row.paid_at) : ''}</td>
+                <td>${row.payment_status}</td>
+            </tr>`;
+        });
+    } else {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Нет оплат</td></tr>';
+    }
+    const chartElem = document.getElementById('paymentsChart');
+    if (paymentsFiltered.length) {
+        const hours = Array.from({length: 24}, (_, i) => i);
+        const paymentsByHour = Array(24).fill(0);
+        paymentsFiltered.forEach(row => {
+            if (row.paid_at) {
+                const d = new Date(row.paid_at);
+                const h = d.getHours();
+                paymentsByHour[h] += row.amount;
+            }
+        });
+        if (paymentsChart) {
+            paymentsChart.data.labels = hours.map(h => `${h}:00`);
+            paymentsChart.data.datasets[0].data = paymentsByHour;
+            paymentsChart.update();
+        } else {
+            paymentsChart = new Chart(chartElem.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: hours.map(h => `${h}:00`),
+                    datasets: [
+                        {
+                            label: 'Сумма по часам',
+                            data: paymentsByHour,
+                            backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: false }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Час' } },
+                        y: { title: { display: true, text: 'Сумма (сом)' }, beginAtZero: true, ticks: { precision:0 } }
+                    }
+                }
+            });
+        }
+    } else {
+        if (paymentsChart) {
+            paymentsChart.data.labels = [];
+            paymentsChart.data.datasets[0].data = [];
+            paymentsChart.update();
+        }
+    }
+}
+function loadPaymentsAnalytics() {
+    const dateInput = document.getElementById('paymentsDate');
+    let day = dateInput.value;
+    if (!day) {
+        const today = new Date();
+        day = today.toISOString().slice(0,10);
+        dateInput.value = day;
+    }
+    fetch(`/admin/analytics/payments?day=${encodeURIComponent(day)}`)
+        .then(r => r.json())
+        .then(data => {
+            paymentsDataRaw = data.payments || [];
+            filterPaymentsData();
+            renderPaymentsTableAndChart();
+        });
+}
+document.getElementById('payments-tab').addEventListener('click', function() {
+    loadPaymentsAnalytics();
+    if (!paymentsInterval) {
+        paymentsInterval = setInterval(loadPaymentsAnalytics, 5000);
+    }
+});
+document.getElementById('paymentsDate').addEventListener('change', function() {
+    loadPaymentsAnalytics();
+});
+document.getElementById('paymentsPlateSearch').addEventListener('input', function() {
+    filterPaymentsData();
+    renderPaymentsTableAndChart();
+});
+document.getElementById('paymentsStatusFilter').addEventListener('change', function() {
+    filterPaymentsData();
+    renderPaymentsTableAndChart();
+});
+document.getElementById('paymentsMinAmount').addEventListener('input', function() {
+    filterPaymentsData();
+    renderPaymentsTableAndChart();
+});
+document.getElementById('paymentsMaxAmount').addEventListener('input', function() {
+    filterPaymentsData();
+    renderPaymentsTableAndChart();
+});
+document.getElementById('paymentsSortOrder').addEventListener('change', function() {
+    renderPaymentsTableAndChart();
+});
+document.getElementById('clearPaymentsFilters').addEventListener('click', function() {
+    document.getElementById('paymentsPlateSearch').value = '';
+    document.getElementById('paymentsStatusFilter').value = '';
+    document.getElementById('paymentsMinAmount').value = '';
+    document.getElementById('paymentsMaxAmount').value = '';
+    document.getElementById('paymentsSortOrder').value = 'desc';
+    filterPaymentsData();
+    renderPaymentsTableAndChart();
+});
+document.getElementById('adminTabs').addEventListener('shown.bs.tab', function (event) {
+    const targetTab = event.target.getAttribute('data-bs-target');
+    if (targetTab !== '#paymentsTab' && paymentsInterval) {
+        clearInterval(paymentsInterval);
+        paymentsInterval = null;
+    }
+});
+</script>
+<script>
+function takeSnapshot(cameraIp, targetId) {
+    const snapshotDiv = document.getElementById(targetId);
+    snapshotDiv.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;">
+        <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;">
+          <span class="visually-hidden">Загрузка...</span>
+        </div>
+        <span class="text-muted mt-2">Загрузка...</span>
+      </div>
+    `;
+    fetch(`/admin/camera-snapshot/${cameraIp}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.image) {
+                snapshotDiv.innerHTML = `
+                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <img src="${data.image}" alt="Снимок с камеры" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;display:block;margin:auto;">
+                  </div>
+                `;
+            } else {
+                snapshotDiv.innerHTML = `<span class="text-danger">Ошибка: ${data.error || 'Нет связи'}</span>`;
+            }
+        })
+        .catch(() => {
+            snapshotDiv.innerHTML = '<span class="text-danger">Ошибка подключения</span>';
+        });
+}
+</script>
+<script>
+let heartbeatInterval = null;
+function startHeartbeat() {
+    if (heartbeatInterval) return;
+    heartbeatInterval = setInterval(() => {
+        fetch('/admin/heartbeat', {method: 'POST'}).catch(()=>{});
+    }, 20000);
+    fetch('/admin/heartbeat', {method: 'POST'}).catch(()=>{});
+}
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        startHeartbeat();
+    } else {
+        stopHeartbeat();
+    }
+});
+window.addEventListener('focus', startHeartbeat);
+window.addEventListener('blur', stopHeartbeat);
+window.addEventListener('beforeunload', stopHeartbeat);
+if (document.visibilityState === 'visible') startHeartbeat();
+</script>
+<script>
+let hourlyChart;
+let weekdayAvgDurationChart;
+let weekdayEntryExitChart;
+function loadParkingAnalytics() {
+    fetch('/admin/analytics/parking')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('avgEntriesPerDay').textContent = data.avg_entries_per_day ?? '-';
+            document.getElementById('avgDuration').textContent = formatMinutesToHM(data.avg_duration_minutes);
+
+            const ctx = document.getElementById('hourlyChart').getContext('2d');
+            const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+            const entryValues = labels.map((_, i) => (data.hourly_distribution && typeof data.hourly_distribution[i] !== 'undefined') ? data.hourly_distribution[i] : 0);
+            const exitValues = labels.map((_, i) => (data.hourly_exit_distribution && typeof data.hourly_exit_distribution[i] !== 'undefined') ? data.hourly_exit_distribution[i] : 0);
+
+            if (hourlyChart) {
+                hourlyChart.data.labels = labels;
+                hourlyChart.data.datasets[0].data = entryValues;
+                hourlyChart.data.datasets[1].data = exitValues;
+                hourlyChart.update();
+            } else {
+                hourlyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Въездов',
+                                data: entryValues,
+                                backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                            },
+                            {
+                                label: 'Выездов',
+                                data: exitValues,
+                                backgroundColor: 'rgba(231, 76, 60, 0.7)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Час' } },
+                            y: { title: { display: true, text: 'Количество' }, beginAtZero: true, ticks: { precision:0 } }
+                        }
+                    }
+                });
+            }
+
+            const weekdayCtx = document.getElementById('weekdayAvgDurationChart').getContext('2d');
+            const weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            const weekdayData = weekdayLabels.map((_, i) => (data.weekday_avg_duration && typeof data.weekday_avg_duration[i] !== 'undefined') ? data.weekday_avg_duration[i] : 0);
+
+            if (weekdayAvgDurationChart) {
+                weekdayAvgDurationChart.data.labels = weekdayLabels;
+                weekdayAvgDurationChart.data.datasets[0].data = weekdayData;
+                weekdayAvgDurationChart.update();
+            } else {
+                weekdayAvgDurationChart = new Chart(weekdayCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: weekdayLabels,
+                        datasets: [
+                            {
+                                label: 'Среднее время стоянки (мин)',
+                                data: weekdayData,
+                                backgroundColor: 'rgba(39, 174, 96, 0.7)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: false }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'День недели' } },
+                            y: { title: { display: true, text: 'Минуты' }, beginAtZero: true, ticks: { precision:0 } }
+                        }
+                    }
+                });
+            }
+
+            const weekdayEntryExitCtx = document.getElementById('weekdayEntryExitChart').getContext('2d');
+            const weekdayEntryData = weekdayLabels.map((_, i) => (data.weekday_entry_distribution && typeof data.weekday_entry_distribution[i] !== 'undefined') ? data.weekday_entry_distribution[i] : 0);
+            const weekdayExitData = weekdayLabels.map((_, i) => (data.weekday_exit_distribution && typeof data.weekday_exit_distribution[i] !== 'undefined') ? data.weekday_exit_distribution[i] : 0);
+
+            if (weekdayEntryExitChart) {
+                weekdayEntryExitChart.data.labels = weekdayLabels;
+                weekdayEntryExitChart.data.datasets[0].data = weekdayEntryData;
+                weekdayEntryExitChart.data.datasets[1].data = weekdayExitData;
+                weekdayEntryExitChart.update();
+            } else {
+                weekdayEntryExitChart = new Chart(weekdayEntryExitCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: weekdayLabels,
+                        datasets: [
+                            {
+                                label: 'Въездов',
+                                data: weekdayEntryData,
+                                backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                            },
+                            {
+                                label: 'Выездов',
+                                data: weekdayExitData,
+                                backgroundColor: 'rgba(231, 76, 60, 0.7)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: true },
+                            title: { display: false }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'День недели' } },
+                            y: { title: { display: true, text: 'Количество' }, beginAtZero: true, ticks: { precision:0 } }
+                        }
+                    }
+                });
+            }
+        });
+}
+    function formatHourDecimalToTime(val) {
+        if (val === null || val === undefined || isNaN(val)) return '-';
+        const hour = Math.floor(val);
+        const min = Math.round((val - hour) * 60);
+        return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+    }
+    function formatMinutesToHM(mins) {
+        if (mins === null || mins === undefined || isNaN(mins)) return '-';
+        mins = Math.round(mins);
+        if (mins < 60) return `${mins} мин`;
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        if (m === 0) return `${h} ч`;
+        return `${h} ч ${m} мин`;
+    }
+    let platesAnalyticsData = [];
+    function loadPlatesAnalytics() {
+        fetch('/admin/analytics/plates')
+            .then(r => r.json())
+            .then(data => {
+                platesAnalyticsData = data || [];
+                renderPlatesAnalyticsTable();
+            });
+    }
+    function renderPlatesAnalyticsTable() {
+        const tbody = document.querySelector('#platesAnalyticsTable tbody');
+        const search = document.getElementById('platesAnalyticsSearch').value.trim().toUpperCase();
+        let filtered = platesAnalyticsData;
+        if (search) {
+            filtered = platesAnalyticsData.filter(row => (row.plate_number || '').toUpperCase().includes(search));
+        }
+        tbody.innerHTML = '';
+        if (filtered.length) {
+            filtered.forEach(row => {
+                tbody.innerHTML += `<tr>
+                    <td>${renderPlate(row.plate_number)}</td>
+                    <td>${row.count}</td>
+                    <td>${formatMinutesToHM(row.avg_duration_minutes)}</td>
+                    <td>${formatHourDecimalToTime(row.avg_entry_hour)}</td>
+                    <td>${formatHourDecimalToTime(row.avg_exit_hour)}</td>
+                </tr>`;
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Нет данных</td></tr>';
+        }
+    }
+    document.getElementById('platesAnalyticsSearch').addEventListener('input', renderPlatesAnalyticsTable);
+    document.getElementById('analytics-tab').addEventListener('click', function() {
+        loadParkingAnalytics();
+        loadPlatesAnalytics();
+    });
     function renderRate(val) {
         if (!val) return '';
         if (typeof val === 'string' && /^(\d{2}:\d{2}(:\d{2})?)$/.test(val)) return '';
@@ -465,7 +1069,6 @@
         return `<span class="plate-simple"><span class="plate-region">${region}</span><span class="plate-sep"></span><span class="plate-main">${digits}${letters}</span></span>`;
     }
 
-    // Mode management
     function updateCurrentMode() {
         fetch('/admin/parking-mode')
             .then(r => r.json())
@@ -486,7 +1089,29 @@
     });
     updateCurrentMode();
 
-    // Tariff management
+    document.getElementById('barrierForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const resultSpan = document.getElementById('barrierResult');
+        resultSpan.textContent = 'Открытие...';
+        fetch('/admin/barrier-open-default', {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                resultSpan.textContent = 'Шлагбаум открыт!';
+                resultSpan.className = 'ms-3 text-success';
+            } else {
+                resultSpan.textContent = 'Ошибка открытия!';
+                resultSpan.className = 'ms-3 text-danger';
+            }
+        })
+        .catch(() => {
+            resultSpan.textContent = 'Ошибка соединения!';
+            resultSpan.className = 'ms-3 text-danger';
+        });
+    });
+
     let tariffModal = new bootstrap.Modal(document.getElementById('tariffModal'));
     function loadTariffs() {
         fetch('/tariffs/list')
@@ -504,8 +1129,8 @@
                                 <td>${tariff.free_minutes}</td>
                                 <td>${tariff.max_hours}</td>
                                 <td>${tariff.is_active ? '<span class="badge bg-success">Да</span>' : ''}</td>
-                                <td>${tariff.valid_from ? formatDateTime(tariff.valid_from) : ''}</td>
-                                <td>${tariff.valid_until ? formatDateTime(tariff.valid_until) : ''}</td>
+                                <!-- <td>${tariff.valid_from ? formatDateTime(tariff.valid_from) : ''}</td>
+                                <td>${tariff.valid_until ? formatDateTime(tariff.valid_until) : ''}</td> -->
                                 <td>${tariff.description || ''}</td>
                                 <td>
                                     ${!tariff.is_active ? `
@@ -574,7 +1199,6 @@
         });
     });
 
-    // Whitelist management
     let whitelistModal = new bootstrap.Modal(document.getElementById('whitelistModal'));
     function loadWhitelist() {
         fetch('/admin/whitelist')
@@ -587,8 +1211,8 @@
                         tbody.innerHTML += `
                             <tr>
                                 <td>${renderPlate(entry.plate_number)}</td>
-                                <td>${entry.valid_from ? formatDateTime(entry.valid_from) : ''}</td>
-                                <td>${entry.valid_until ? formatDateTime(entry.valid_until) : ''}</td>
+                                <td>${entry.valid_from ? entry.valid_from.slice(0,10) : ''}</td>
+                                <td>${entry.valid_until ? entry.valid_until.slice(0,10) : ''}</td>
                                 <td>${entry.comment || ''}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary" onclick="editWhitelist(${entry.id})">✏️</button>
@@ -622,8 +1246,8 @@
                 if (entry) {
                     document.getElementById('whitelistId').value = entry.id;
                     document.getElementById('plateNumber').value = entry.plate_number;
-                    document.getElementById('validFrom').value = entry.valid_from ? entry.valid_from.slice(0,16) : '';
-                    document.getElementById('validUntil').value = entry.valid_until ? entry.valid_until.slice(0,16) : '';
+                    document.getElementById('validFrom').value = entry.valid_from ? entry.valid_from.slice(0,10) : '';
+                    document.getElementById('validUntil').value = entry.valid_until ? entry.valid_until.slice(0,10) : '';
                     document.getElementById('whitelistComment').value = entry.comment || '';
                     document.getElementById('whitelistModalLabel').textContent = 'Редактировать номер';
                     whitelistModal.show();
@@ -639,8 +1263,8 @@
         const comment = document.getElementById('whitelistComment').value.trim();
         const payload = {
             plate_number,
-            valid_from: valid_from ? new Date(valid_from).toISOString() : null,
-            valid_until: valid_until ? new Date(valid_until).toISOString() : null,
+            valid_from: valid_from ? new Date(valid_from).toISOString().slice(0,10) : new Date().toISOString().slice(0,10),
+            valid_until: valid_until ? new Date(valid_until).toISOString().slice(0,10) : null,
             comment
         };
         if (id) {
@@ -670,7 +1294,6 @@
         }
     }
 
-    // Active visits management with improved filtering
     function loadActiveVisits() {
         const plate = document.getElementById('activePlateSearch').value.trim();
         const sort = document.getElementById('activeSortOrder').value;
@@ -692,7 +1315,7 @@
                         tbody.innerHTML += `
                             <tr>
                                 <td>${renderPlate(entry.plate_number)}</td>
-                                <td>${entry.entry_time ? formatDateTime(entry.entry_time) : ''}</td>
+                                <td>${entry.entry_time ? formatTimeOnly(entry.entry_time) : ''}</td>
                                 <td>${entry.entry_camera_ip || ''}</td>
                             </tr>
                         `;
@@ -710,7 +1333,6 @@
         }
     });
 
-    // Real-time search for active visits
     document.getElementById('activePlateSearch').addEventListener('input', function() {
         loadActiveVisits();
     });
@@ -719,14 +1341,12 @@
         loadActiveVisits();
     });
 
-    // Clear active filters
     document.getElementById('clearActiveFilters').addEventListener('click', function() {
         document.getElementById('activePlateSearch').value = '';
         document.getElementById('activeSortOrder').value = 'desc';
         loadActiveVisits();
     });
 
-    // Visits management with improved filtering
     function loadVisitsByDate() {
         const day = document.getElementById('visitsDate').value;
         const status = document.getElementById('statusFilter').value;
@@ -735,22 +1355,15 @@
         const plate = document.getElementById('plateSearch').value.trim();
         const sort = document.getElementById('sortOrder').value;
 
-        // Combine date and time for entryFrom/entryTo if only time is entered
         function combineDateTime(date, time) {
             if (!date || !time) return "";
-            // If time already contains date, return as is
-            if (/^\d{4}-\d{2}-\d{2}/.test(time)) return time;
-            // If time is only HH:mm or HH:mm:ss, combine with date
             return date + " " + time;
         }
-        if (entryFrom) entryFrom = combineDateTime(day, entryFrom);
-        if (entryTo) entryTo = combineDateTime(day, entryTo);
-
         let params = [];
         if (day) params.push(`day=${encodeURIComponent(day)}`);
         if (status) params.push(`status=${encodeURIComponent(status)}`);
-        if (entryFrom) params.push(`entry_from=${encodeURIComponent(entryFrom)}`);
-        if (entryTo) params.push(`entry_to=${encodeURIComponent(entryTo)}`);
+        if (entryFrom) params.push(`entry_from=${encodeURIComponent(combineDateTime(day, entryFrom))}`);
+        if (entryTo) params.push(`entry_to=${encodeURIComponent(combineDateTime(day, entryTo))}`);
         if (plate) params.push(`plate=${encodeURIComponent(plate)}`);
         if (sort) params.push(`sort=${encodeURIComponent(sort)}`);
 
@@ -767,8 +1380,8 @@
                         tbody.innerHTML += `
                             <tr>
                                 <td>${renderPlate(entry.plate_number)}</td>
-                                <td>${entry.entry_time ? formatDateTime(entry.entry_time) : ''}</td>
-                                <td>${entry.exit_time ? formatDateTime(entry.exit_time) : ''}</td>
+                                <td>${entry.entry_time ? formatTimeOnly(entry.entry_time) : ''}</td>
+                                <td>${entry.exit_time ? formatTimeOnly(entry.exit_time) : ''}</td>
                                 <td>${renderStatusBadge(entry.visit_status)}</td>
                             </tr>
                         `;
@@ -780,25 +1393,6 @@
     }
 
     document.getElementById('visits-tab').addEventListener('click', function() {
-        if (!window._flatpickrInit) {
-            flatpickr("#visitsDate", {
-                dateFormat: "Y-m-d",
-                defaultDate: new Date(),
-                locale: "ru",
-                onChange: loadVisitsByDate
-            });
-            flatpickr("#entryFrom", {
-                enableTime: true,
-                dateFormat: "Y-m-d H:i",
-                locale: "ru"
-            });
-            flatpickr("#entryTo", {
-                enableTime: true,
-                dateFormat: "Y-m-d H:i",
-                locale: "ru"
-            });
-            window._flatpickrInit = true;
-        }
         const dateInput = document.getElementById('visitsDate');
         if (!dateInput.value) {
             const today = new Date();
@@ -810,12 +1404,18 @@
         }
     });
 
-    // Real-time filtering for visits
+    document.getElementById('adminTabs').addEventListener('shown.bs.tab', function (event) {
+        const targetTab = event.target.getAttribute('data-bs-target');
+        if (targetTab !== '#visitsTab' && window._visitsInterval) {
+            clearInterval(window._visitsInterval);
+            window._visitsInterval = null;
+        }
+    });
+
     document.getElementById('statusFilter').addEventListener('change', loadVisitsByDate);
     document.getElementById('plateSearch').addEventListener('input', loadVisitsByDate);
     document.getElementById('sortOrder').addEventListener('change', loadVisitsByDate);
 
-    // Clear visits filters
     document.getElementById('clearVisitsFilters').addEventListener('click', function() {
         document.getElementById('visitsDate').value = new Date().toISOString().slice(0,10);
         document.getElementById('statusFilter').value = '';
@@ -826,7 +1426,6 @@
         loadVisitsByDate();
     });
 
-    // Server Errors Tab
     function loadServerErrors() {
         const logElem = document.getElementById('serverErrorsLog');
         const level = document.getElementById('logLevelSelect').value;

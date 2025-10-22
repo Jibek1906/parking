@@ -34,6 +34,13 @@ async def lifespan(app: FastAPI):
     """Управление жизненным циклом приложения"""
     init_database()
     init_images_directory()
+
+    try:
+        from app.services.camera_snapshot import start_snapshot_thread
+        start_snapshot_thread()
+        print("📸 Camera snapshot thread started (every 5 seconds)")
+    except Exception as e:
+        print(f"❌ Failed to start camera snapshot thread: {e}")
    
     expired_count = close_expired_sessions()
     if expired_count > 0:
@@ -67,6 +74,9 @@ app = FastAPI(
     version="2.5",
     lifespan=lifespan
 )
+
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 if os.path.exists(templates_dir):

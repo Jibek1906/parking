@@ -2,52 +2,313 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Оплата успешна</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Parking - Оплата успешна</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    * { 
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
     body {
-      margin: 0; padding: 0;
-      display: flex; justify-content: center; align-items: center;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      color: white;
+      overflow: hidden;
+      width: 100vw;
       height: 100vh;
-      background: linear-gradient(135deg,#e0f7fa,#ffffff);
-      font-family: 'Segoe UI', sans-serif;
-      text-align: center;
     }
-    .success-box {
-      background: #fff;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    .fade-in { animation: fadeIn 0.8s ease-out; }
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .plate-container {
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border: 2px solid rgba(6, 182, 212, 0.3);
+      padding: 20px 40px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 15px;
+      backdrop-filter: blur(8px);
+    }
+    .plate-region {
+      font-size: 36px;
+      font-weight: 700;
+      color: #06b6d4;
+      letter-spacing: 2px;
+    }
+    .plate-sep {
+      width: 3px;
+      height: 40px;
+      background: rgba(6, 182, 212, 0.5);
+      border-radius: 2px;
+    }
+    .plate-main {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: white;
+    }
+    .main-container {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
       padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-      max-width: 500px; width: 100%;
+      box-sizing: border-box;
     }
-    .success-text { font-size: 26px; font-weight: bold; color: #28a745; margin-bottom: 20px; }
-    .barrier {
-      width: 100%; height: 180px; position: relative;
-      margin: 40px auto; background: #ddd; border-radius: 10px; overflow: hidden;
+    .content-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-top: 20px;
     }
-    .bar {
-      position: absolute; bottom: 0; left: 0;
-      width: 100%; height: 40px; background: #ff4d4d;
-      transform-origin: left center;
-      animation: openBarrier 3s forwards;
+    @keyframes barrierOpen {
+      0% { transform: rotate(90deg); }
+      100% { transform: rotate(0deg); }
     }
-    @keyframes openBarrier {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(-75deg); }
+    .barrier-group {
+      transform-origin: 80px 225px;
+      transform: rotate(90deg);
+      animation: barrierOpen 2s cubic-bezier(0.4,0,0.6,1) forwards;
     }
-    .final-text { font-size: 20px; color: #333; margin-top: 20px; }
   </style>
-    <script>
-        fetch("/screen/clear-payment", {method: "POST"});
-    </script>
+  <script>
+    fetch("/screen/clear-payment",{method:"POST"});
+  </script>
 </head>
 <body>
-  <div class="success-box">
-    <div class="success-text">✅ Оплата прошла успешно!</div>
-    <div>Шлагбаум открывается...</div>
-    <div class="barrier"><div class="bar"></div></div>
-    <div class="final-text">Счастливого пути!</div>
+  <div class="main-container fade-in">
+
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-5">
+        <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center">
+          <img src="/static/1.jpg" alt="Логотип" class="w-12 h-12 object-contain" />
+        </div>
+        <div>
+          <h1 class="text-4xl font-semibold text-white tracking-tight">Smart Parking</h1>
+          <p class="text-slate-400 text-sm mt-1">Cистема умной парковки</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <div id="time" class="text-6xl font-light text-white tabular-nums"></div>
+      </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="glass rounded-3xl p-8 flex flex-col items-center justify-center flex-1">
+        
+        <div class="mb-8">
+          <div class="plate-container">
+            <span class="plate-region" id="plate-region"></span>
+            <span class="plate-sep"></span>
+            <span class="plate-main" id="plate-main"></span>
+          </div>
+        </div>
+
+        <div class="w-full flex flex-col items-center justify-center flex-1">
+          <div class="text-5xl font-bold text-emerald-400 mb-12 text-center">
+            Оплата принята
+          </div>
+          
+          <div class="barrier-anim" style="width:400px;height:400px;display:flex;align-items:center;justify-content:center;">
+            <svg id="svg-barrier" width="320" height="320" viewBox="0 0 320 320">
+              <defs>
+                <linearGradient id="baseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" style="stop-color:#9ca3af;stop-opacity:1"/>
+                  <stop offset="50%" style="stop-color:#e2e8f0;stop-opacity:1"/>
+                  <stop offset="100%" style="stop-color:#9ca3af;stop-opacity:1"/>
+                </linearGradient>
+              </defs>
+              <ellipse cx="80" cy="270" rx="35" ry="10" fill="#000" opacity="0.3"/>
+              <rect x="50" y="180" width="60" height="90" rx="25" fill="url(#baseGrad)"/>
+              <circle cx="80" cy="225" r="20" fill="#64748b" stroke="#475569" stroke-width="3"/>
+              <circle cx="80" cy="225" r="10" fill="#334155"/>
+              <g class="barrier-group">
+                <rect x="73" y="60" width="14" height="165" rx="7" fill="#1e3a8a"/>
+                <g fill="#ffffff">
+                  <polygon points="73,70 87,60 87,90 73,100"/>
+                  <polygon points="73,110 87,100 87,130 73,140"/>
+                  <polygon points="73,150 87,140 87,170 73,180"/>
+                  <polygon points="73,190 87,180 87,210 73,220"/>
+                </g>
+              </g>
+            </svg>
+          </div>
+          
+          <div class="text-3xl text-emerald-400 font-semibold mt-4">Шлагбаум открыт</div>
+        </div>
+
+        <div class="w-full px-8 max-w-3xl">
+          <div class="glass border-2 border-emerald-400/40 rounded-2xl p-6 bg-gradient-to-br from-emerald-400/10 to-teal-500/10">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-slate-300 text-2xl font-medium">Время въезда:</span>
+              <span id="entry-time" class="text-cyan-400 font-medium text-2xl"></span>
+            </div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-slate-300 text-2xl font-medium">Время выезда:</span>
+              <span id="exit-time" class="text-cyan-400 font-medium text-2xl"></span>
+            </div>
+            <div class="border-t border-slate-600/50 my-4"></div>
+            <div class="flex items-center justify-center">
+              <span class="text-slate-300 text-2xl font-medium mr-4">Продолжительность:</span>
+              <span id="duration" class="text-emerald-400 font-bold text-2xl"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
   <script>
+    function updateTime() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('time').textContent = `${h}:${m}`;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    function formatTimeOnly(dateString) {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const operationId = urlParams.get('operation_id');
+    const plateParam = urlParams.get('plate');
+
+    async function loadPaymentData() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const entryTimeParam = urlParams.get('entry_time');
+      const exitTimeParam = urlParams.get('exit_time');
+      const durationParam = urlParams.get('duration');
+      const plateParam = urlParams.get('plate');
+      let filled = false;
+
+      if (plateParam) {
+        let plate = plateParam;
+        if (plate.length >= 5) {
+          const region = plate.slice(0,2);
+          let digits = "";
+          let letters = "";
+          if (/^\d{2}\d{3}[A-ZА-Я]{3}$/i.test(plate)) {
+            digits = plate.slice(2,5);
+            letters = plate.slice(5,8);
+          } else {
+            digits = plate.slice(2);
+            letters = "";
+          }
+          document.getElementById('plate-region').textContent = region;
+          document.getElementById('plate-main').textContent = digits + letters;
+        } else {
+          document.getElementById('plate-region').textContent = '';
+          document.getElementById('plate-main').textContent = plate;
+        }
+        filled = true;
+      }
+      if (entryTimeParam) {
+        document.getElementById('entry-time').textContent = formatTimeOnly(entryTimeParam);
+        filled = true;
+      }
+      if (exitTimeParam) {
+        document.getElementById('exit-time').textContent = formatTimeOnly(exitTimeParam);
+        filled = true;
+      }
+      if (durationParam) {
+        document.getElementById('duration').textContent = durationParam;
+        filled = true;
+      }
+      if (!filled) {
+        let data = null;
+        if (operationId) {
+          try {
+            const response = await fetch(`/api/operation/${operationId}`);
+            if (response.ok) {
+              data = await response.json();
+            }
+          } catch (e) {
+            data = null;
+          }
+        }
+        if ((!data || !data.plate) && plateParam) {
+          try {
+            const resp = await fetch(`/camera/payment-page/${plateParam}`);
+            if (resp.ok) {
+              data = await resp.json();
+            }
+          } catch (e) {
+            data = null;
+          }
+        }
+        if (!data || !data.plate) {
+          try {
+            const resp = await fetch('/screen/next-payment');
+            const next = await resp.json();
+            if (next && next.plate) {
+              const resp2 = await fetch(`/camera/payment-page/${next.plate}`);
+              if (resp2.ok) {
+                data = await resp2.json();
+              }
+            }
+          } catch (e) {
+            data = null;
+          }
+        }
+        if (data) {
+          const d = data.qr_payment ? data.qr_payment : data;
+          let plate = d.car_number || d.plate || "";
+          if (plate.length >= 5) {
+            const region = plate.slice(0,2);
+            let digits = "";
+            let letters = "";
+            if (/^\d{2}\d{3}[A-ZА-Я]{3}$/i.test(plate)) {
+              digits = plate.slice(2,5);
+              letters = plate.slice(5,8);
+            } else {
+              digits = plate.slice(2);
+              letters = "";
+            }
+            document.getElementById('plate-region').textContent = region;
+            document.getElementById('plate-main').textContent = digits + letters;
+          } else {
+            document.getElementById('plate-region').textContent = '';
+            document.getElementById('plate-main').textContent = plate;
+          }
+          if (d.entry_time) {
+            document.getElementById('entry-time').textContent = formatTimeOnly(d.entry_time);
+          } else {
+            document.getElementById('entry-time').textContent = '—';
+          }
+          if (d.exit_time) {
+            document.getElementById('exit-time').textContent = formatTimeOnly(d.exit_time);
+          } else {
+            document.getElementById('exit-time').textContent = '—';
+          }
+          if (d.duration) {
+            document.getElementById('duration').textContent = d.duration;
+          } else {
+            document.getElementById('duration').textContent = '—';
+          }
+        }
+      }
+    }
+    loadPaymentData();
+
     let wsScreen = null;
     function startScreenWebSocket() {
       let wsProto = window.location.protocol === "https:" ? "wss" : "ws";
@@ -69,8 +330,12 @@
         setTimeout(startScreenWebSocket, 2000);
       };
     }
+    
     window.addEventListener("DOMContentLoaded", startScreenWebSocket);
-    setTimeout(()=>{ window.location.href="/1"; },6000);
+    
+    setTimeout(() => {
+      window.location.href = "/1";
+    }, 10000);
   </script>
 </body>
 </html>

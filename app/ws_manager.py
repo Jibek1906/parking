@@ -15,10 +15,15 @@ class ScreenWebSocketManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        for connection in self.active_connections:
+        import asyncio
+        to_remove = []
+        async def send_safe(connection):
             try:
                 await connection.send_json(message)
             except Exception:
-                pass
+                to_remove.append(connection)
+        await asyncio.gather(*(send_safe(conn) for conn in self.active_connections))
+        for conn in to_remove:
+            self.disconnect(conn)
 
 screen_ws_manager = ScreenWebSocketManager()

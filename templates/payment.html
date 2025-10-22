@@ -2,238 +2,140 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Умная парковка – Оплата</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Parking - Оплата</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    * {
+      font-family: 'Inter', sans-serif;
+    }
     body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      margin: 0; padding: 20px;
-      background: #f5f7fa;
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh; color: #333;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      color: white;
+      overflow: hidden;
     }
-    .container {
-      background: #fff;
-      border-radius: 20px;
-      padding: 60px;
-      width: 100%;
-      max-width: 700px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-      text-align: center;
-      box-sizing: border-box;
-      min-height: 600px;
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    .logo { 
-      font-size: 24px; 
-      font-weight: bold; 
-      margin-bottom: 8px; 
-      color: #2575fc; 
+    .fade-in {
+      animation: fadeIn 0.8s ease-out;
     }
-    .subtitle { 
-      font-size: 16px; 
-      color: #666; 
-      margin-bottom: 20px; 
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
-
-    .unified-width {
-      margin: 20px auto;
-    }
-
-    #car-number {
-      margin-bottom: 30px;
-      width: calc(100% - 40px);
-      max-width: calc(100% - 40px);
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .plate-simple {
-      display: flex;
+    .plate-container {
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border: 2px solid rgba(6, 182, 212, 0.3);
+      padding: 15px 30px;
+      border-radius: 12px;
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      font-family: 'Arial Black', Arial, sans-serif;
-      font-size: 20px;
-      font-weight: bold;
-      letter-spacing: 3px;
-      color: #222;
-      background: #fff;
-      border: 2px solid #222;
-      border-radius: 8px;
-      padding: 12px 20px;
-      width: 100%;
-      height: 50px;
-      line-height: 1;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      box-sizing: border-box;
+      gap: 12px;
+      backdrop-filter: blur(8px);
     }
     .plate-region {
-      font-size: 16px;
-      font-weight: bold;
-      color: #222;
-      margin-right: 8px;
-      vertical-align: middle;
+      font-size: 28px;
+      font-weight: 700;
+      color: #06b6d4;
+      letter-spacing: 2px;
     }
     .plate-sep {
-      display: inline-block;
       width: 2px;
-      height: 24px;
-      background: #222;
-      margin: 0 10px 0 0;
-      border-radius: 1px;
+      height: 30px;
+      background: rgba(6, 182, 212, 0.5);
+      border-radius: 2px;
     }
     .plate-main {
-      font-size: 20px;
-      font-weight: bold;
-      letter-spacing: 3px;
-      color: #222;
-    }
-
-    .qr-section {
-      display: flex; 
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-    .qr-image {
-      width: calc(100% - 40px);
-      max-width: calc(100% - 40px);
-      height: auto;
-      border: 3px solid #e8eef7; 
-      border-radius: 16px;
-      padding: 40px; 
-      background: #fff;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      box-sizing: border-box;
-    }
-    
-    .amount-rectangle {
-      width: calc(100% - 40px);
-      max-width: calc(100% - 40px);
-      height: 70px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #4CAF50, #45a049);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 30px auto;
-      padding: 0 30px;
-      box-shadow: 0 8px 25px rgba(76, 175, 80, 0.18);
-      box-sizing: border-box;
-    }
-    .amount-rectangle .amount-label {
-      color: white;
-      font-size: 20px;
-      font-weight: 600;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    }
-    .amount-rectangle .amount-value {
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .info {
-      background: #fafbfc; 
-      border: 1px solid #e8eef7;
-      border-radius: 12px; 
-      margin: 25px auto 20px auto;
-      overflow: hidden;
-      width: calc(100% - 40px);
-      max-width: calc(100% - 40px);
-      box-sizing: border-box;
-    }
-    .info-row {
-      display: flex; 
-      justify-content: space-between;
-      align-items: center;
-      padding: 22px 30px; 
-      border-bottom: 1px solid #e8eef7; 
-      font-size: 18px;
-    }
-    .info-row:last-child { 
-      border-bottom: none;
-    }
-    .info-row span:first-child {
-      color: #666;
-    }
-    .info-row span:last-child {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .status {
-      font-size: 18px; 
-      font-weight: 600; 
-      margin: 30px auto;
-      padding: 18px 35px; 
-      border-radius: 25px;
-      background: #fff3cd; 
-      color: #856404; 
-      border: 1px solid #ffeeba;
-      min-height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: calc(100% - 40px);
-      max-width: calc(100% - 40px);
-      box-sizing: border-box;
-    }
-    .status-wait {
-      display: flex;
-      align-items: center;
-      font-size: 18px;
-      color: #43a047;
+      font-size: 32px;
       font-weight: 700;
-      letter-spacing: 1px;
+      letter-spacing: 4px;
+      color: white;
     }
-    .status.paid { 
-      background: #d4edda; 
-      color: #155724; 
-      border: 1px solid #c3e6cb; 
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
-    .refresh-btn {
-      background: linear-gradient(135deg, #2575fc, #6366f1);
-      color: #fff; 
-      border: none;
-      padding: 14px 28px; 
-      border-radius: 25px; 
-      cursor: pointer;
-      font-weight: 600; 
-      font-size: 16px;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(37, 117, 252, 0.3);
-      display: none;
-      width: 340px;
-      max-width: 100%;
-      margin: 20px auto;
-      box-sizing: border-box;
+    .pulse-animate {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
   </style>
 </head>
-<body>
-  <div class="container">
-    <div id="car-number" class="unified-width">
-      <span class="plate-simple">
-        <span class="plate-region" id="plate-region">01</span>
-        <span class="plate-sep"></span>
-        <span class="plate-main" id="plate-main">111AAA</span>
-      </span>
+<body class="min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-6xl fade-in">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-5">
+        <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center">
+          <img src="/static/1.jpg" alt="Логотип" class="w-12 h-12 object-contain" />
+        </div>
+        <div>
+          <h1 class="text-4xl font-semibold text-white tracking-tight">Smart Parking</h1>
+          <p class="text-slate-400 text-sm mt-1">Cистема умной парковки</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <div id="time" class="text-5xl font-light text-white tabular-nums"></div>
+        <p class="text-slate-600 text-xs uppercase tracking-wider mt-2">Текущее время</p>
+      </div>
     </div>
 
-    <div class="qr-section unified-width">
-      <img id="qr-image" class="qr-image" src="" alt="QR Code для оплаты" style="display:none;">
-    </div>
-    <div class="amount-rectangle">
-      <div class="amount-label">К оплате</div>
-      <div class="amount-value" id="amount-circle">- сом</div>
+    <div class="flex flex-col gap-4" style="height: 1000px;">
+      <div class="glass rounded-3xl p-6 flex flex-col items-center justify-start" style="height: 900px; overflow: hidden;">
+        <div id="car-number" class="mb-4 flex-shrink-0">
+          <div class="plate-container">
+            <span class="plate-region" id="plate-region">01</span>
+            <span class="plate-sep"></span>
+            <span class="plate-main" id="plate-main">111AAA</span>
+          </div>
+        </div>
+
+        <div class="qr-section flex-1 flex items-center justify-center w-full px-4" style="min-height: 0;">
+          <img id="qr-image" class="w-full h-auto rounded-2xl border-2 border-cyan-400/20 p-3 bg-white" src="" alt="QR Code" style="display:none; object-fit: contain; max-height: 100%;">
+        </div>
+
+        <div class="w-full px-4 mt-4 flex-shrink-0">
+          <div class="glass border-2 border-emerald-400/40 rounded-xl p-4 bg-gradient-to-br from-emerald-400/10 to-teal-500/10">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 text-xl font-medium">К оплате:</span>
+              <span id="amount-circle" class="text-emerald-400 text-3xl font-bold">- сом</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="status" class="w-full px-4 mt-3 flex-shrink-0 flex items-center justify-center text-center py-3 glass border border-emerald-400/40 rounded-xl bg-emerald-400/10" style="display:none;">
+          <div class="text-emerald-400 font-semibold text-base"></div>
+        </div>
+      </div>
+
+      <div class="glass rounded-3xl p-5" style="height: 180px;">
+        <ul class="space-y-3">
+          <li class="flex items-center justify-between text-slate-300 text-xl border-b border-white/10 pb-3">
+            <span>Время въезда:</span>
+            <span id="entry-time" class="text-cyan-400 font-medium">-</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-300 text-xl border-b border-white/10 pb-3">
+            <span>Время выезда:</span>
+            <span id="exit-time" class="text-cyan-400 font-medium">-</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-300 text-xl">
+            <span>Продолжительность:</span>
+            <span id="duration" class="text-cyan-400 font-medium">-</span>
+          </li>
+        </ul>
+      </div>
     </div>
 
-    <div class="info">
-      <div class="info-row"><span>Время въезда:</span><span id="entry-time">-</span></div>
-      <div class="info-row"><span>Время выезда:</span><span id="exit-time">-</span></div>
-      <div class="info-row"><span>Продолжительность:</span><span id="duration">-</span></div>
-    </div>
-
-    <div id="status" class="status" style="display:none;"></div>
   </div>
 
   <script>
@@ -253,18 +155,26 @@
       }
 
       if (!plateNumber) {
-        document.querySelector('.container').innerHTML = `
-          <div style="font-size:28px;color:#2575fc;margin:40px 0 20px 0;">Нет активной оплаты</div>
-          <div style="font-size:18px;color:#666;margin-bottom:30px;">Для оплаты парковки перейдите по QR-коду или дождитесь появления счета</div>
+        document.querySelector('body').innerHTML = `
+          <div class="min-h-screen flex items-center justify-center p-6">
+            <div class="glass rounded-3xl p-12 text-center max-w-2xl">
+              <div class="text-4xl text-cyan-400 mb-4">Нет активной оплаты</div>
+              <div class="text-xl text-slate-400">Для оплаты парковки перейдите по QR-коду или дождитесь появления счета</div>
+            </div>
+          </div>
         `;
         return;
       }
 
       const response = await fetch(`/camera/payment-page/${plateNumber}`);
       if (!response.ok) {
-        document.querySelector('.container').innerHTML = `
-          <div style="font-size:28px;color:#ff4757;margin:40px 0 20px 0;">Платеж не найден</div>
-          <div style="font-size:18px;color:#666;margin-bottom:30px;">Нет активного счета для оплаты по номеру: <b>${plateNumber}</b></div>
+        document.querySelector('body').innerHTML = `
+          <div class="min-h-screen flex items-center justify-center p-6">
+            <div class="glass rounded-3xl p-12 text-center max-w-2xl">
+              <div class="text-4xl text-red-400 mb-4">Платеж не найден</div>
+              <div class="text-xl text-slate-400">Нет активного счета для оплаты по номеру: <b>${plateNumber}</b></div>
+            </div>
+          </div>
         `;
         return;
       }
@@ -272,8 +182,8 @@
 
       renderPlate(data.car_number);
 
-      document.getElementById('entry-time').textContent = formatDateTime(data.entry_time);
-      document.getElementById('exit-time').textContent = formatDateTime(data.exit_time);
+      document.getElementById('entry-time').textContent = formatTimeOnly(data.entry_time);
+      document.getElementById('exit-time').textContent = formatTimeOnly(data.exit_time);
       document.getElementById('duration').textContent = formatDuration(data.entry_time, data.exit_time);
       document.getElementById('amount-circle').textContent = data.cost_amount.toFixed(2) + ' сом';
 
@@ -322,11 +232,23 @@
           const msg = JSON.parse(event.data);
           if (msg.status === "paid") {
             window.__wsPaidReceived = true;
-            document.getElementById('status').innerHTML = '✅ Оплата прошла';
-            document.getElementById('status').className = 'status paid';
-            document.getElementById('status').style.display = 'flex';
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = '<div class="text-emerald-400 font-semibold text-base">✅ Оплата прошла успешно</div>';
+            statusEl.style.display = 'flex';
             if (checkInterval) clearInterval(checkInterval);
-            setTimeout(()=>{ window.location.href = "/3"; }, 500);
+            setTimeout(()=>{ 
+              const params = [];
+              if (currentOperationId) params.push("operation_id=" + encodeURIComponent(currentOperationId));
+              if (plateNumber) params.push("plate=" + encodeURIComponent(plateNumber));
+              const entryTime = document.getElementById('entry-time')?.textContent || "";
+              const exitTime = document.getElementById('exit-time')?.textContent || "";
+              const duration = document.getElementById('duration')?.textContent || "";
+              if (entryTime && entryTime !== "-") params.push("entry_time=" + encodeURIComponent(entryTime));
+              if (exitTime && exitTime !== "-") params.push("exit_time=" + encodeURIComponent(exitTime));
+              if (duration && duration !== "-") params.push("duration=" + encodeURIComponent(duration));
+              const url = "/3" + (params.length ? "?" + params.join("&") : "");
+              window.location.href = url;
+            }, 100);
             ws.close();
             if (wsScreen) wsScreen.close();
           }
@@ -344,13 +266,23 @@
             clearInterval(checkInterval);
             if (ws) ws.close();
             wsScreen.close();
-            setTimeout(()=>{ window.location.href = "/3"; }, 200);
+            setTimeout(()=>{ window.location.href = "/3"; }, 100);
           }
           if (data.screen === "idle") {
             clearInterval(checkInterval);
             if (ws) ws.close();
             wsScreen.close();
-            setTimeout(()=>{ window.location.href = "/1"; }, 200);
+            setTimeout(()=>{ window.location.href = "/1"; }, 100);
+          }
+          if (data.screen === "free_pass") {
+            clearInterval(checkInterval);
+            if (ws) ws.close();
+            wsScreen.close();
+            if (data.plate) {
+              setTimeout(()=>{ window.location.href = "/camera/free-pass/" + encodeURIComponent(data.plate); }, 200);
+            } else {
+              setTimeout(()=>{ window.location.href = "/1"; }, 200);
+            }
           }
         } catch (e) {}
       };
@@ -359,10 +291,13 @@
       };
     }
 
-    function formatDateTime(iso) {
+    function formatTimeOnly(iso) {
       if (!iso) return "-";
       const d = new Date(iso);
-      return d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      if (isNaN(d.getTime())) return "-";
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
     }
 
     function formatDuration(entryTime, exitTime) {
@@ -390,9 +325,9 @@
       const res = await fetch(`/payment/check-status/${currentOperationId}`);
       const data = await res.json();
       if (data.payment_status === 'paid') {
-        document.getElementById('status').innerHTML = '✅ Оплата прошла';
-        document.getElementById('status').className = 'status paid';
-        document.getElementById('status').style.display = 'flex';
+        const statusEl = document.getElementById('status');
+        statusEl.innerHTML = '<div class="text-emerald-400 font-semibold text-base">✅ Оплата прошла успешно</div>';
+        statusEl.style.display = 'flex';
         clearInterval(checkInterval);
         setTimeout(()=>{ window.location.href = "/3"; },1000);
         if (ws) ws.close();
@@ -401,6 +336,16 @@
     }
 
     window.onload = loadPaymentData;
+
+    function updateTime() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('time').textContent = `${h}:${m}:${s}`;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
   </script>
 </body>
 </html>

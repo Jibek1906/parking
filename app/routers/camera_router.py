@@ -2,6 +2,8 @@
 Роутер для эндпоинтов камер /camera/* с интеграцией QR-оплаты
 """
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from starlette.requests import ClientDisconnect
 from datetime import datetime
 from ..config import KYRGYZSTAN_TZ, PARKING_CONFIG, BAKAI_CONFIG, CAMERA_CONFIG
@@ -10,7 +12,7 @@ from ..services.camera import (
     find_plate_number, find_event_type, find_picture_url,
     is_duplicate_event, is_valid_plate
 )
-from ..services.parking import process_entry, process_exit
+from ..services.parking import process_entry, process_exit, format_duration
 from ..services.images import process_alarm_image
 from ..db import get_db_connection
 import requests
@@ -18,6 +20,11 @@ import uuid
 import logging
 from app.ws_manager import screen_ws_manager
 
+import asyncio
+
+pending_unknown_tasks = {}
+
+templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/camera", tags=["camera"])
 
@@ -80,16 +87,6 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
                 "INSTANT"
             )
 
-        debug_dir = "/var/www/parking/parking/camera_debug"
-        import os
-        os.makedirs(debug_dir, exist_ok=True)
-        debug_filename = os.path.join(
-            debug_dir,
-            f"event_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.bin"
-        )
-        with open(debug_filename, "wb") as f:
-            f.write(raw_bytes)
-
         raw_text = ""
         for encoding in ['utf-8', 'latin-1', 'ascii', 'cp1252']:
             try:
@@ -103,7 +100,6 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
         print("🔍" + "="*79)
         print("📥 EVENT RECEIVED - QR PAYMENT INTEGRATION v2.5")
         print(f"📏 Data size: {len(raw_bytes)} bytes")
-        print(f"📝 Raw event saved to: {debug_filename}")
 
         forwarded_for = req.headers.get("X-Forwarded-For")
         if forwarded_for:
@@ -136,10 +132,35 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
         event_type = find_event_type(raw_text)
         picture_url = find_picture_url(raw_text)
 
-        if plate:
-            print(f"✅ PLATE RECOGNIZED: '{plate}'")
+        global pending_unknown_tasks
+
+        def cancel_pending_unknown(camera_ip):
+            task = pending_unknown_tasks.get(camera_ip)
+            if task and not task.done():
+                task.cancel()
+                print(f"🛑 Cancelled pending UNKNOWN event for {camera_ip}")
+                del pending_unknown_tasks[camera_ip]
+
+        async def send_unknown_event(camera_ip, raw_text, event_type, picture_url):
+            print(f"⏳ Waiting before sending UNKNOWN event for {camera_ip}...")
+            try:
+                await asyncio.sleep(3)
+                print(f"🚨 Sending UNKNOWN event for {camera_ip}")
+                from ..models import save_event
+                unknown_plate = "UNKNOWN"
+                event_id = save_event(f"camera_{camera_ip}", event_type or "ANPR", unknown_plate, raw_text)
+                print(f"✅ UNKNOWN event saved for {camera_ip}, event_id={event_id}")
+            except asyncio.CancelledError:
+                print(f"🛑 UNKNOWN event task cancelled for {camera_ip}")
+            except Exception as e:
+                print(f"❌ Error in UNKNOWN event task for {camera_ip}: {e}")
+
+        if plate and is_valid_plate(plate):
+            cancel_pending_unknown(camera_ip)
         else:
-            print("⚠️ No valid plate number found")
+            cancel_pending_unknown(camera_ip)
+            task = asyncio.create_task(send_unknown_event(camera_ip, raw_text, event_type, picture_url))
+            pending_unknown_tasks[camera_ip] = task
 
         if not plate or not is_valid_plate(plate):
             print("⛔️ Ignoring event: empty or invalid plate")
@@ -151,6 +172,16 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
                 "timestamp": datetime.now(KYRGYZSTAN_TZ).isoformat(),
                 "message": "Событие проигнорировано: номер не распознан или невалиден"
             }
+        debug_dir = "/var/www/parking/parking/camera_debug"
+        import os
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_filename = os.path.join(
+            debug_dir,
+            f"event_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.bin"
+        )
+        with open(debug_filename, "wb") as f:
+            f.write(raw_bytes)
+        print(f"📝 Raw event saved to: {debug_filename}")
 
         if event_type:
             print(f"📋 Event type: '{event_type}'")
@@ -196,12 +227,71 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
         if camera_ip == PARKING_CONFIG["exit_camera_ip"]:
             print("🚪 EXIT CAMERA 11 - QR PAYMENT INTEGRATION!")
             parking_result = process_exit(camera_ip, plate, event_id)
+            if PARKING_CONFIG.get("mode", "paid") == "free":
+                print("🟢 Парковка в режиме БЕЗ ОПЛАТЫ — экран не переключается, только idle")
+                result = {
+                    "status": "ok",
+                    "event_type": event_type or "ANPR",
+                    "plate": plate or "",
+                    "plate_valid": bool(plate and is_valid_plate(plate)),
+                    "camera_ip": camera_ip,
+                    "timestamp": datetime.now(KYRGYZSTAN_TZ).isoformat(),
+                    "event_id": event_id,
+                    "picture_url": picture_url,
+                    **parking_result
+                }
+                if event_id and plate:
+                    result["image_processing_scheduled"] = True
+                else:
+                    result["image_processing_scheduled"] = False
+                    result["image_skip_reason"] = "No valid plate detected"
+                print(f"📤 FINAL RESPONSE: {result}")
+                print("="*80)
+                return result
 
-            if (parking_result.get("action") in ("exit", "exit_payment_required") and
-                parking_result.get("total_cost", 0) > 0 and
-                plate and
-                BAKAI_CONFIG["enable_payment_flow"]):
+            from app.services.parking import is_plate_in_whitelist, calculate_parking_cost
+            show_free_pass = False
+            try:
+                if not plate or plate.strip().upper() == "UNKNOWN":
+                    show_free_pass = True
+                elif is_plate_in_whitelist(plate):
+                    show_free_pass = True
+                else:
+                    conn = get_db_connection()
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT entry_time, exit_time FROM parking_visits
+                        WHERE plate_number = %s AND visit_status = 'completed'
+                        ORDER BY exit_time DESC LIMIT 1
+                    """, (plate.upper(),))
+                    row = cur.fetchone()
+                    if row and row[0] and row[1]:
+                        cost_info = calculate_parking_cost(row[0], row[1])
+                        if cost_info.get("free_time"):
+                            show_free_pass = True
+                    cur.close()
+                    conn.close()
+            except Exception as e:
+                logger.error(f"Ошибка при определении free_pass: {e}")
 
+            if show_free_pass or parking_result.get("action") in ("exit_without_entry", "exit_free_mode"):
+                try:
+                    logger.info(f"🔔 Sending free_pass screen event for plate {plate}")
+                    from app.ws_manager import screen_ws_manager
+                    screen_ws_manager.last_payment_plate = plate
+                    await screen_ws_manager.broadcast({
+                        "screen": "free_pass",
+                        "plate": plate
+                    })
+                except Exception as ws_ex:
+                    logger.error(f"WebSocket broadcast error: {ws_ex}")
+                parking_result["payment_required"] = False
+            elif (
+                parking_result.get("action") in ("exit", "exit_payment_required")
+                and parking_result.get("total_cost", 0) > 0
+                and plate
+                and BAKAI_CONFIG["enable_payment_flow"]
+            ):
                 print(f"💳 Generating QR payment for {plate}, cost: {parking_result['total_cost']}")
                 try:
                     qr_result = await generate_qr_for_parking(
@@ -225,15 +315,6 @@ async def camera_event(req: Request, background_tasks: BackgroundTasks):
                             })
                         except Exception as ws_ex:
                             logger.error(f"WebSocket broadcast error: {ws_ex}")
-                        # Скачивание фото — в фоне, не мешая переходу на оплату
-                        # def async_photo():
-                        #     try:
-                        #         process_alarm_image(
-                        #             event_id, camera_ip, picture_url, plate, event_type or "ANPR"
-                        #         )
-                        #     except Exception as e:
-                        #         logger.error(f"Async image processing error: {e}")
-                        # background_tasks.add_task(async_photo)
                     else:
                         parking_result["qr_payment_error"] = "Failed to generate QR"
                         parking_result["payment_required"] = False
@@ -459,8 +540,38 @@ async def get_payment_page_data(plate_number: str):
         
         result = cur.fetchone()
         if not result:
-            raise HTTPException(status_code=404, detail="No pending payment found for this vehicle")
-        
+            cur.execute("""
+                SELECT id, entry_time, exit_time, duration_minutes, cost_amount
+                FROM parking_visits
+                WHERE plate_number = %s AND visit_status = 'completed'
+                ORDER BY exit_time DESC
+                LIMIT 1
+            """, (plate_number.upper(),))
+            session = cur.fetchone()
+            if not session:
+                raise HTTPException(status_code=404, detail="No completed session found for this vehicle")
+            session_id, entry_time, exit_time, duration_minutes, cost_amount = session
+
+            if cost_amount is None or cost_amount <= 0:
+                reason = "Проезд бесплатный"
+            else:
+                reason = "Проезд разрешён"
+
+            plate = plate_number.upper()
+            plate_region = plate[:2] if len(plate) >= 2 else ""
+            plate_main = plate[2:] if len(plate) > 2 else plate
+
+            return {
+                "free_pass": True,
+                "car_number": plate,
+                "plate_region": plate_region,
+                "plate_main": plate_main,
+                "reason": reason,
+                "entry_time": entry_time.isoformat() if entry_time else "-",
+                "exit_time": exit_time.isoformat() if exit_time else "-",
+                "duration": format_duration(duration_minutes) if duration_minutes else "-"
+            }
+
         (session_id, entry_time, exit_time, duration_minutes, 
          cost_amount, transaction_id, bakai_operation_id, payment_status, payment_id) = result
 
@@ -484,6 +595,80 @@ async def get_payment_page_data(plate_number: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@router.get("/free-pass/{plate_number}", response_class=HTMLResponse)
+async def free_pass_page(request: Request, plate_number: str):
+    """
+    Страница для бесплатного проезда, белого списка, unknown и т.д.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        if plate_number.lower() == "unknown":
+            reason = "Ваш номер не распознан — проезд бесплатный"
+            plate = "UNKNOWN"
+            plate_region = ""
+            plate_main = "UNKNOWN"
+            entry_time = "-"
+            exit_time = "-"
+            duration = "-"
+        else:
+            cur.execute("""
+                SELECT entry_time, exit_time, duration_minutes, cost_amount, visit_status
+                FROM parking_visits
+                WHERE plate_number = %s
+                ORDER BY exit_time DESC
+                LIMIT 1
+            """, (plate_number.upper(),))
+            session = cur.fetchone()
+            if not session:
+                reason = "Данные не найдены"
+                plate = plate_number.upper()
+                plate_region = plate[:2] if len(plate) >= 2 else ""
+                plate_main = plate[2:] if len(plate) > 2 else plate
+                entry_time = "-"
+                exit_time = "-"
+                duration = "-"
+            else:
+                entry_time_db, exit_time_db, duration_minutes, cost_amount, visit_status = session
+                plate = plate_number.upper()
+                plate_region = plate[:2] if len(plate) >= 2 else ""
+                plate_main = plate[2:] if len(plate) > 2 else plate
+                if visit_status in ("exit_without_entry", "exit_whitelist"):
+                    reason = "Данные не найдены"
+                    entry_time = "-"
+                    duration = "-"
+                    exit_time = exit_time_db.isoformat() if exit_time_db else "-"
+                elif visit_status == "completed":
+                    if cost_amount is not None and cost_amount <= 0:
+                        reason = "Проезд бесплатный"
+                    else:
+                        reason = "Проезд разрешён"
+                    entry_time = entry_time_db.isoformat() if entry_time_db else "-"
+                    exit_time = exit_time_db.isoformat() if exit_time_db else "-"
+                    duration = format_duration(duration_minutes) if duration_minutes else "-"
+                else:
+                    reason = "Данные не найдены"
+                    entry_time = "-"
+                    duration = "-"
+                    exit_time = exit_time_db.isoformat() if exit_time_db else "-"
+
+        return templates.TemplateResponse(
+            "free_pass.html",
+            {
+                "request": request,
+                "car_number": plate,
+                "plate_region": plate_region,
+                "plate_main": plate_main,
+                "reason": reason,
+                "entry_time": entry_time,
+                "exit_time": exit_time,
+                "duration": duration
+            }
+        )
     finally:
         cur.close()
         conn.close()

@@ -11,7 +11,7 @@ from ..models import get_active_tariff, set_active_tariff, create_tariff
 
 router = APIRouter(prefix="/tariffs", tags=["tariffs"])
 
-class TariffCreate(BaseModel):
+class TariffCreate(BaseModel):0
     name: str
     hourly_rate: float
     night_rate: float
@@ -162,10 +162,12 @@ async def update_tariff(tariff_id: int, tariff_data: TariffUpdate):
     cur = conn.cursor()
     
     try:
+        # Проверяем существование тарифа
         cur.execute("SELECT id FROM parking_tariffs WHERE id = %s", (tariff_id,))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Tariff not found")
         
+        # Строим динамический UPDATE запрос
         update_fields = []
         update_values = []
         

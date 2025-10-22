@@ -1,14 +1,23 @@
-from fastapi import APIRouter, Request, Form, Body, HTTPException
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Request, Form, Body, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from app.config import PARKING_CONFIG, save_parking_mode
 from app.models import (
     get_whitelist, add_to_whitelist, update_whitelist_entry, delete_whitelist_entry
 )
+from app.services.parking import get_parking_analytics, get_plate_analytics, get_payment_analytics
+import requests
+from io import BytesIO
+from PIL import Image
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
 router = APIRouter()
+
+@router.post("/admin/heartbeat")
+async def admin_heartbeat():
+    """Пустой endpoint для heartbeat активности администратора"""
+    return {"status": "ok"}
 
 class WhitelistEntry(BaseModel):
     plate_number: str
@@ -87,11 +96,86 @@ async def api_delete_whitelist_entry(entry_id: int):
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete whitelist entry")
     return {"status": "success"}
+from fastapi.responses import JSONResponse
+import httpx
+import base64
+from httpx import DigestAuth
+import asyncio
+
+@router.get("/admin/camera-snapshot/{camera_ip}")
+async def get_camera_snapshot(camera_ip: str):
+    """
+    Получить снимок с камеры (base64 для JS, только при нажатии кнопки)
+    """
+    import httpx
+    import base64
+    from httpx import DigestAuth
+
+    try:
+        url = f"http://{camera_ip}/ISAPI/Streaming/channels/1/picture"
+        async with httpx.AsyncClient(timeout=2.0, trust_env=False) as client:
+            auth = DigestAuth("admin", "Deltatech2023")
+            response = await client.get(url, auth=auth)
+            if response.status_code == 200:
+                image_base64 = base64.b64encode(response.content).decode('utf-8')
+                return JSONResponse({
+                    "success": True,
+                    "image": f"data:image/jpeg;base64,{image_base64}"
+                })
+            elif response.status_code == 401:
+                return JSONResponse({
+                    "success": False,
+                    "error": "Unauthorized: Check camera credentials"
+                }, status_code=401)
+            else:
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Camera returned status {response.status_code}"
+                }, status_code=response.status_code)
+    except httpx.TimeoutException:
+        return JSONResponse({
+            "success": False,
+            "error": "Camera connection timeout"
+        }, status_code=504)
+    except httpx.ConnectError:
+        return JSONResponse({
+            "success": False,
+            "error": f"Cannot connect to camera {camera_ip}"
+        }, status_code=503)
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "error": f"Unexpected error: {e}"
+        }, status_code=500)
 
 from app.db import get_db_connection
 from datetime import datetime, date
 from fastapi import Query
 import subprocess
+
+@router.get("/admin/analytics/parking")
+async def api_parking_analytics(days: int = 7):
+    """
+    Общая аналитика по парковке за последние days дней
+    """
+    return get_parking_analytics(days=days)
+
+@router.get("/admin/analytics/payments")
+async def api_payment_analytics(day: str = None):
+    """
+    Аналитика по оплатам за выбранный день (по умолчанию сегодня)
+    """
+    return get_payment_analytics(day=day)
+
+@router.get("/admin/analytics/plates")
+async def api_plate_analytics(days: int = 7):
+    """
+    Аналитика по номерам за последние days дней
+    """
+    return get_plate_analytics(days=days)
+
+from app.services.barrier import open_barrier, close_barrier, get_barrier_state
+from app.config import PARKING_CONFIG
 
 @router.get("/admin/active-visits")
 async def api_active_visits(
@@ -135,6 +219,49 @@ async def api_active_visits(
     finally:
         cur.close()
         conn.close()
+
+from fastapi import Body
+
+@router.get("/admin/barrier-state")
+async def api_barrier_state(camera_ip: str = Query(..., description="IP камеры (въезд/выезд)")):
+    """
+    Получить состояние шлагбаума (open/closed/unknown/unreachable)
+    """
+    state = get_barrier_state(camera_ip)
+    return {"state": state}
+
+@router.post("/admin/barrier-open")
+async def api_barrier_open(data: dict = Body(...)):
+    """
+    Открыть шлагбаум для указанной камеры
+    """
+    camera_ip = data.get("camera_ip")
+    if not camera_ip:
+        raise HTTPException(status_code=400, detail="camera_ip required")
+    success = open_barrier(camera_ip)
+    return {"success": success}
+
+@router.post("/admin/barrier-open-default")
+async def api_barrier_open_default():
+    """
+    Открыть шлагбаум по умолчанию (въезд)
+    """
+    camera_ip = PARKING_CONFIG.get("entry_camera_ip")
+    if not camera_ip:
+        raise HTTPException(status_code=500, detail="entry_camera_ip not configured")
+    success = open_barrier(camera_ip)
+    return {"success": success}
+
+@router.post("/admin/barrier-close")
+async def api_barrier_close(data: dict = Body(...)):
+    """
+    Закрыть шлагбаум для указанной камеры
+    """
+    camera_ip = data.get("camera_ip")
+    if not camera_ip:
+        raise HTTPException(status_code=400, detail="camera_ip required")
+    success = close_barrier(camera_ip)
+    return {"success": success}
 
 @router.get("/admin/server-errors")
 async def api_server_errors(lines: int = 50, level: str = "err"):
